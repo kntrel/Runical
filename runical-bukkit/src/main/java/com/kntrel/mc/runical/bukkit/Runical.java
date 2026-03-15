@@ -49,76 +49,85 @@ public final class Runical extends BaseRunical implements Listener {
     }
 
     public CompletableFuture<String> translateAsync(Player player, String key, Placeholder... args) {
-        return translateAsync(localeOf(player), key, args);
+        return this.translateAsync(localeOf(player), key, args);
     }
 
     public CompletableFuture<String> translateAsync(Player player, String key) {
-        return translateAsync(player, key, new Placeholder[0]);
+        return this.translateAsync(player, key, new Placeholder[0]);
     }
 
     public String translateOrNull(Player player, String key, Placeholder... args) {
-        return translateOrNull(localeOf(player), key, args);
+        return this.translateOrNull(localeOf(player), key, args);
     }
 
     public String translateOrNull(Player player, String key) {
-        return translateOrNull(player, key, new Placeholder[0]);
+        return this.translateOrNull(player, key, new Placeholder[0]);
+    }
+
+    public String translateOrDefault(Player player, String key, String defaultValue, Placeholder... args) {
+        return this.translateOrDefault(localeOf(player), key, defaultValue, args);
+    }
+
+    public String translateOrDefault(Player player, String key, String defaultValue) {
+        return this.translateOrDefault(player, key, defaultValue, new Placeholder[0]);
     }
 
     public CompletableFuture<String> translateOrNullAsync(Player player, String key, Placeholder... args) {
-        return translateOrNullAsync(localeOf(player), key, args);
+        return this.translateOrNullAsync(localeOf(player), key, args);
     }
 
     public CompletableFuture<String> translateOrNullAsync(Player player, String key) {
-        return translateOrNullAsync(player, key, new Placeholder[0]);
+        return this.translateOrNullAsync(player, key, new Placeholder[0]);
+    }
+
+    public CompletableFuture<String> translateOrDefaultAsync(Player player, String key, String defaultValue, Placeholder... args) {
+        return this.translateOrDefaultAsync(localeOf(player), key, defaultValue, args);
+    }
+
+    public CompletableFuture<String> translateOrDefaultAsync(Player player, String key, String defaultValue) {
+        return this.translateOrDefaultAsync(player, key, defaultValue, new Placeholder[0]);
     }
 
     public ResolvedTranslation resolve(Player player, String key, Placeholder... args) {
-        return resolve(localeOf(player), key, args);
+        return this.resolve(localeOf(player), key, args);
     }
 
     public ResolvedTranslation resolve(Player player, String key) {
-        return resolve(player, key, new Placeholder[0]);
+        return this.resolve(player, key, new Placeholder[0]);
     }
 
     public CompletableFuture<ResolvedTranslation> resolveAsync(Player player, String key, Placeholder... args) {
-        return resolveAsync(localeOf(player), key, args);
+        return this.resolveAsync(localeOf(player), key, args);
     }
 
     public CompletableFuture<ResolvedTranslation> resolveAsync(Player player, String key) {
-        return resolveAsync(player, key, new Placeholder[0]);
+        return this.resolveAsync(player, key, new Placeholder[0]);
     }
 
     public String formatList(Player player, Collection<?> items) {
-        return formatList(player, items, ListStyle.AND);
+        return this.formatList(player, items, ListStyle.AND);
     }
 
     public String formatList(Player player, Collection<?> items, ListStyle style) {
-        return formatList(localeOf(player), items, style);
+        return this.formatList(localeOf(player), items, style);
     }
 
     public CompletableFuture<Boolean> sendTranslation(Player player, String key, Placeholder... args) {
-        Objects.requireNonNull(player, "player");
-        UUID playerId = player.getUniqueId();
         String locale = localeOf(player);
-
-        return resolveAsync(locale, key, args).thenCompose(resolved -> {
-            CompletableFuture<Boolean> sentFuture = new CompletableFuture<>();
-            this.plugin.getServer().getScheduler().runTask(this.plugin, () -> {
-                Player target = this.plugin.getServer().getPlayer(playerId);
-                if (target == null || !target.isOnline()) {
-                    sentFuture.complete(false);
-                    return;
-                }
-
-                target.sendMessage(resolved.orKey());
-                sentFuture.complete(true);
-            });
-            return sentFuture;
-        });
+        return this.sendMessage(player, resolveAsync(locale, key, args).thenApply(ResolvedTranslation::orKey));
     }
 
     public CompletableFuture<Boolean> sendTranslation(Player player, String key) {
         return sendTranslation(player, key, new Placeholder[0]);
+    }
+
+    public CompletableFuture<Boolean> sendTranslationOrDefault(Player player, String key, String defaultValue, Placeholder... args) {
+        String locale = localeOf(player);
+        return sendMessage(player, translateOrDefaultAsync(locale, key, defaultValue, args));
+    }
+
+    public CompletableFuture<Boolean> sendTranslationOrDefault(Player player, String key, String defaultValue) {
+        return sendTranslationOrDefault(player, key, defaultValue, new Placeholder[0]);
     }
 
     @EventHandler
@@ -179,6 +188,26 @@ public final class Runical extends BaseRunical implements Listener {
             return normalizedLocale;
         });
         return normalizedLocale;
+    }
+
+    private CompletableFuture<Boolean> sendMessage(Player player, CompletableFuture<String> messageFuture) {
+        Objects.requireNonNull(player, "player");
+        UUID playerId = player.getUniqueId();
+
+        return messageFuture.thenCompose(message -> {
+            CompletableFuture<Boolean> sentFuture = new CompletableFuture<>();
+            this.plugin.getServer().getScheduler().runTask(this.plugin, () -> {
+                Player target = this.plugin.getServer().getPlayer(playerId);
+                if (target == null || !target.isOnline()) {
+                    sentFuture.complete(false);
+                    return;
+                }
+
+                target.sendMessage(message);
+                sentFuture.complete(true);
+            });
+            return sentFuture;
+        });
     }
 
     private static Path resolveLanguagePath(Plugin plugin, String relativePath) {

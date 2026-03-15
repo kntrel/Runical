@@ -54,6 +54,15 @@ class BaseRunicalTest {
 
         assertEquals("missing.key", runical.translate("fr-ca", "missing.key"));
         assertNull(runical.translateOrNull("fr-ca", "missing.key"));
+        assertEquals(
+                "Fallback value 12",
+                runical.translateOrDefault(
+                        "fr-ca",
+                        "missing.key",
+                        "Fallback value {blockCount}",
+                        Placeholder.of("blockCount", 12)
+                )
+        );
     }
 
     @Test
@@ -143,6 +152,16 @@ class BaseRunicalTest {
         assertEquals(
                 List.of("Hello Alex", "Hello Sam", "Hello Morgan"),
                 futures.stream().map(CompletableFuture::join).toList()
+        );
+
+        assertEquals(
+                "Fallback async 24",
+                runical.translateOrDefaultAsync(
+                        "en-us",
+                        "missing.message",
+                        "Fallback async {blockCount}",
+                        Placeholder.of("blockCount", 24)
+                ).join()
         );
     }
 

@@ -192,6 +192,34 @@ public abstract class BaseRunical implements AutoCloseable {
     }
 
     /**
+     * Resolves a translation and returns {@code defaultValue} when no translation is available.
+     *
+     * @param locale requested locale
+     * @param key dot-separated translation key
+     * @param defaultValue fallback value returned when the key could not be resolved
+     * @param args placeholders used to render the resolved translation
+     * @return the rendered translation, or {@code defaultValue} when the key could not be resolved
+     */
+    public final String translateOrDefault(String locale, String key, String defaultValue, Placeholder... args) {
+        Objects.requireNonNull(defaultValue, "defaultValue");
+        String value = this.resolve(locale, key, args).value();
+        return value != null ? value : this.renderMessage(defaultValue, args);
+    }
+
+    /**
+     * Resolves a translation without placeholders and returns {@code defaultValue} when
+     * unavailable.
+     *
+     * @param locale requested locale
+     * @param key dot-separated translation key
+     * @param defaultValue fallback value returned when the key could not be resolved
+     * @return the rendered translation, or {@code defaultValue} when the key could not be resolved
+     */
+    public final String translateOrDefault(String locale, String key, String defaultValue) {
+        return this.translateOrDefault(locale, key, defaultValue, new Placeholder[0]);
+    }
+
+    /**
      * Asynchronously resolves a translation and returns {@code null} when unavailable.
      *
      * @param locale requested locale
@@ -213,6 +241,36 @@ public abstract class BaseRunical implements AutoCloseable {
      */
     public final CompletableFuture<String> translateOrNullAsync(String locale, String key) {
         return this.translateOrNullAsync(locale, key, new Placeholder[0]);
+    }
+
+    /**
+     * Asynchronously resolves a translation and returns {@code defaultValue} when unavailable.
+     *
+     * @param locale requested locale
+     * @param key dot-separated translation key
+     * @param defaultValue fallback value returned when the key could not be resolved
+     * @param args placeholders used to render the resolved translation
+     * @return a future completing with the rendered translation or {@code defaultValue}
+     */
+    public final CompletableFuture<String> translateOrDefaultAsync(String locale, String key, String defaultValue, Placeholder... args) {
+        Objects.requireNonNull(defaultValue, "defaultValue");
+        return this.resolveAsync(locale, key, args).thenApply(resolved -> {
+            String value = resolved.value();
+            return value != null ? value : renderMessage(defaultValue, args);
+        });
+    }
+
+    /**
+     * Asynchronously resolves a translation without placeholders and returns
+     * {@code defaultValue} when unavailable.
+     *
+     * @param locale requested locale
+     * @param key dot-separated translation key
+     * @param defaultValue fallback value returned when the key could not be resolved
+     * @return a future completing with the rendered translation or {@code defaultValue}
+     */
+    public final CompletableFuture<String> translateOrDefaultAsync(String locale, String key, String defaultValue) {
+        return this.translateOrDefaultAsync(locale, key, defaultValue, new Placeholder[0]);
     }
 
     /**
@@ -702,8 +760,8 @@ public abstract class BaseRunical implements AutoCloseable {
         if (accessSequence % this.options.cleanupIntervalQueries() != 0L) {
             return;
         }
-        enforceLoadedLocaleLimit();
-        evictIdleLocales(accessSequence);
+        this.enforceLoadedLocaleLimit();
+        this.evictIdleLocales(accessSequence);
     }
     private void enforceLoadedLocaleLimit() {
         int maxLoadedLocales = this.options.maxLoadedLocales();
