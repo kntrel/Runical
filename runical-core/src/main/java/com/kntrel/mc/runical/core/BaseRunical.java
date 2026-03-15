@@ -30,6 +30,27 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 
+/**
+ * Base implementation of the Runical locale resolver.
+ *
+ * <p>Instances scan a directory of YAML locale files whose file names map to normalized locale
+ * identifiers such as {@code en-us.yml} or {@code es.yml}. Nested YAML objects are flattened into
+ * dot-separated translation keys, while the reserved {@code _runical} root is used for metadata
+ * such as localized list formatting patterns.
+ *
+ * <p>Translation lookup follows this fallback order:
+ * exact locale, general language locale, sibling regional locales for the same language,
+ * configured default locale, and finally the unresolved key.
+ *
+ * <p>This type is safe to use concurrently. Async methods run on the configured executor from
+ * {@link RunicalOptions}, or on a virtual-thread-per-task executor when none is provided.
+ *
+ * <p>Subclass this type to expose a concrete constructor or to integrate locale retention with a
+ * higher-level platform abstraction.
+ *
+ * <p>All public instance methods except {@link #close()} throw {@link IllegalStateException} after
+ * the instance has been closed.
+ */
 public abstract class BaseRunical implements AutoCloseable {
 
     //CONSTANTS
@@ -53,6 +74,17 @@ public abstract class BaseRunical implements AutoCloseable {
 
 
     //CONSTRUCTOR
+    /**
+     * Creates a resolver backed by the given language directory.
+     *
+     * <p>The directory path is normalized to an absolute path and scanned immediately by invoking
+     * {@link #reload()}. When {@code options} is {@code null}, the default {@link RunicalOptions}
+     * are used.
+     *
+     * @param languagesDirectory directory containing locale YAML files
+     * @param options immutable resolver options, or {@code null} to use defaults
+     * @throws NullPointerException if {@code languagesDirectory} is {@code null}
+     */
     protected BaseRunical(Path languagesDirectory, RunicalOptions options) {
         this.languagesDirectory = Objects.requireNonNull(languagesDirectory, "languagesDirectory").toAbsolutePath().normalize();
         this.options = options == null ? RunicalOptions.builder().build() : options;
@@ -80,30 +112,124 @@ public abstract class BaseRunical implements AutoCloseable {
 
 
     //API
+    /**
+     * Resolves a translation and returns either the rendered translation or the key when the
+     * translation cannot be found.
+     *
+     * <p>Locale identifiers are normalized by trimming whitespace, converting underscores to
+     * hyphens, and lower-casing the value. Placeholder values are rendered only when a translation
+     * is found. Null placeholder entries are ignored, placeholder values are converted with
+     * {@link String#valueOf(Object)}, missing placeholders remain unchanged, and literal braces can
+     * be escaped with doubled braces such as <code>{{</code> and <code>}}</code>.
+     *
+     * @param locale requested locale
+     * @param key dot-separated translation key
+     * @param args placeholders used to render the resolved translation
+     * @return the rendered translation, or {@code key} when no translation was found
+     * @throws NullPointerException if {@code locale} or {@code key} is {@code null}
+     * @throws IllegalArgumentException if {@code locale} or {@code key} is blank
+     */
     public final String translate(String locale, String key, Placeholder... args) {
         return this.resolve(locale, key, args).orKey();
     }
+
+    /**
+     * Resolves a translation without placeholders.
+     *
+     * @param locale requested locale
+     * @param key dot-separated translation key
+     * @return the rendered translation, or {@code key} when no translation was found
+     */
     public final String translate(String locale, String key) {
         return translate(locale, key, new Placeholder[0]);
     }
+
+    /**
+     * Asynchronously resolves a translation and returns either the rendered translation or the key
+     * when the translation cannot be found.
+     *
+     * @param locale requested locale
+     * @param key dot-separated translation key
+     * @param args placeholders used to render the resolved translation
+     * @return a future completing with the rendered translation or {@code key}
+     */
     public final CompletableFuture<String> translateAsync(String locale, String key, Placeholder... args) {
         return this.resolveAsync(locale, key, args).thenApply(ResolvedTranslation::orKey);
     }
+
+    /**
+     * Asynchronously resolves a translation without placeholders.
+     *
+     * @param locale requested locale
+     * @param key dot-separated translation key
+     * @return a future completing with the rendered translation or {@code key}
+     */
     public final CompletableFuture<String> translateAsync(String locale, String key) {
         return this.translateAsync(locale, key, new Placeholder[0]);
     }
+
+    /**
+     * Resolves a translation and returns {@code null} when no translation is available.
+     *
+     * @param locale requested locale
+     * @param key dot-separated translation key
+     * @param args placeholders used to render the resolved translation
+     * @return the rendered translation, or {@code null} when the key could not be resolved
+     */
     public final String translateOrNull(String locale, String key, Placeholder... args) {
         return this.resolve(locale, key, args).value();
     }
+
+    /**
+     * Resolves a translation without placeholders and returns {@code null} when unavailable.
+     *
+     * @param locale requested locale
+     * @param key dot-separated translation key
+     * @return the rendered translation, or {@code null} when the key could not be resolved
+     */
     public final String translateOrNull(String locale, String key) {
         return this.translateOrNull(locale, key, new Placeholder[0]);
     }
+
+    /**
+     * Asynchronously resolves a translation and returns {@code null} when unavailable.
+     *
+     * @param locale requested locale
+     * @param key dot-separated translation key
+     * @param args placeholders used to render the resolved translation
+     * @return a future completing with the rendered translation or {@code null}
+     */
     public final CompletableFuture<String> translateOrNullAsync(String locale, String key, Placeholder... args) {
         return this.resolveAsync(locale, key, args).thenApply(ResolvedTranslation::value);
     }
+
+    /**
+     * Asynchronously resolves a translation without placeholders and returns {@code null} when
+     * unavailable.
+     *
+     * @param locale requested locale
+     * @param key dot-separated translation key
+     * @return a future completing with the rendered translation or {@code null}
+     */
     public final CompletableFuture<String> translateOrNullAsync(String locale, String key) {
         return this.translateOrNullAsync(locale, key, new Placeholder[0]);
     }
+
+    /**
+     * Resolves a translation and returns full metadata about the lookup.
+     *
+     * <p>When a translation is found, the returned value contains the requested locale, the final
+     * locale that supplied the translation, the rendered value, and the {@link ResolutionSource}
+     * describing which fallback branch succeeded. When a translation is not found, the value and
+     * resolved locale are {@code null} and the source is {@link ResolutionSource#UNRESOLVED}.
+     *
+     * @param locale requested locale
+     * @param key dot-separated translation key
+     * @param args placeholders used to render the resolved translation
+     * @return detailed lookup metadata
+     * @throws NullPointerException if {@code locale} or {@code key} is {@code null}
+     * @throws IllegalArgumentException if {@code locale} or {@code key} is blank
+     */
     public final ResolvedTranslation resolve(String locale, String key, Placeholder... args) {
         this.ensureOpen();
         String normalizedLocale = this.normalizeLocale(locale);
@@ -126,20 +252,71 @@ public abstract class BaseRunical implements AutoCloseable {
                 resolved.source()
         );
     }
+
+    /**
+     * Resolves a translation without placeholders and returns full lookup metadata.
+     *
+     * @param locale requested locale
+     * @param key dot-separated translation key
+     * @return detailed lookup metadata
+     */
     public final ResolvedTranslation resolve(String locale, String key) {
         return resolve(locale, key, new Placeholder[0]);
     }
+
+    /**
+     * Asynchronously resolves a translation and returns full lookup metadata.
+     *
+     * @param locale requested locale
+     * @param key dot-separated translation key
+     * @param args placeholders used to render the resolved translation
+     * @return a future completing with detailed lookup metadata
+     */
     public final CompletableFuture<ResolvedTranslation> resolveAsync(String locale, String key, Placeholder... args) {
         ensureOpen();
         return CompletableFuture.supplyAsync(() -> resolve(locale, key, args), this.asyncExecutor);
     }
+
+    /**
+     * Asynchronously resolves a translation without placeholders and returns full lookup metadata.
+     *
+     * @param locale requested locale
+     * @param key dot-separated translation key
+     * @return a future completing with detailed lookup metadata
+     */
     public final CompletableFuture<ResolvedTranslation> resolveAsync(String locale, String key) {
         return resolveAsync(locale, key, new Placeholder[0]);
     }
+
+    /**
+     * Formats a collection using the locale's {@link ListStyle#AND AND-style} list patterns.
+     *
+     * @param locale requested locale
+     * @param items items to format
+     * @return the formatted list
+     * @throws NullPointerException if {@code locale} or {@code items} is {@code null}
+     * @throws IllegalArgumentException if {@code locale} is blank
+     */
     public final String formatList(String locale, Collection<?> items) {
         return formatList(locale, items, ListStyle.AND);
     }
 
+    /**
+     * Formats a collection using locale-specific list metadata from the {@code _runical} section
+     * of the locale file.
+     *
+     * <p>List-format lookup follows the same locale fallback order as translations. When no custom
+     * metadata is available, built-in English defaults are used for the requested {@code style}.
+     * Item values are converted with {@link String#valueOf(Object)}.
+     *
+     * @param locale requested locale
+     * @param items items to format
+     * @param style list conjunction style
+     * @return the formatted list
+     * @throws NullPointerException if {@code locale}, {@code items}, or {@code style} is
+     *                              {@code null}
+     * @throws IllegalArgumentException if {@code locale} is blank
+     */
     public final String formatList(String locale, Collection<?> items, ListStyle style) {
         ensureOpen();
         Objects.requireNonNull(items, "items");
@@ -152,20 +329,68 @@ public abstract class BaseRunical implements AutoCloseable {
         cleanupIfNeeded(accessSequence);
         return formatted;
     }
+
+    /**
+     * Returns the normalized default locale used as the final fallback for translations and list
+     * formats.
+     *
+     * @return the current default locale
+     */
     public final String getDefaultLocale() {
         return this.defaultLocale.get();
     }
+
+    /**
+     * Updates the default locale used as the final fallback for lookups.
+     *
+     * <p>The new locale is normalized immediately.
+     *
+     * @param locale new default locale
+     * @throws NullPointerException if {@code locale} is {@code null}
+     * @throws IllegalArgumentException if {@code locale} is blank
+     */
     public final void setDefaultLocale(String locale) {
         this.defaultLocale.set(this.normalizeLocale(locale));
     }
+
+    /**
+     * Returns whether the current locale index contains a file for the given locale.
+     *
+     * <p>This checks the scanned file index only and does not load the locale into memory.
+     *
+     * @param locale locale to check
+     * @return {@code true} when the locale has a corresponding YAML file
+     * @throws NullPointerException if {@code locale} is {@code null}
+     * @throws IllegalArgumentException if {@code locale} is blank
+     */
     public final boolean hasLocale(String locale) {
         ensureOpen();
         return this.localeIndex.get().hasLocale(locale);
     }
+
+    /**
+     * Returns whether the given locale is currently loaded in the in-memory cache.
+     *
+     * @param locale locale to inspect
+     * @return {@code true} when the locale bundle is currently cached
+     * @throws NullPointerException if {@code locale} is {@code null}
+     * @throws IllegalArgumentException if {@code locale} is blank
+     */
     public final boolean isLoaded(String locale) {
         ensureOpen();
         return this.loadedLocales.containsKey(this.normalizeLocale(locale));
     }
+
+    /**
+     * Loads a locale into memory ahead of time if it exists.
+     *
+     * <p>If the locale file is missing or fails to load, this method returns silently and the
+     * locale remains unavailable.
+     *
+     * @param locale locale to preload
+     * @throws NullPointerException if {@code locale} is {@code null}
+     * @throws IllegalArgumentException if {@code locale} is blank
+     */
     public final void preload(String locale) {
         ensureOpen();
         String normalizedLocale = this.normalizeLocale(locale);
@@ -173,6 +398,13 @@ public abstract class BaseRunical implements AutoCloseable {
         touchOrLoadBundle(normalizedLocale, accessSequence);
         cleanupIfNeeded(accessSequence);
     }
+
+    /**
+     * Rescans the language directory and clears all cached locale bundles.
+     *
+     * <p>Existing in-flight loads are discarded from the cache view by incrementing the index
+     * version. The current default locale is not changed.
+     */
     public final void reload() {
         ensureOpenOrFresh();
         this.indexVersion.incrementAndGet();
@@ -180,14 +412,34 @@ public abstract class BaseRunical implements AutoCloseable {
         this.loadedLocales.clear();
         this.inFlightLoads.clear();
     }
+
+    /**
+     * Removes a single locale bundle from the in-memory cache.
+     *
+     * @param locale locale to evict
+     * @throws NullPointerException if {@code locale} is {@code null}
+     * @throws IllegalArgumentException if {@code locale} is blank
+     */
     public final void evict(String locale) {
         ensureOpen();
         this.loadedLocales.remove(this.normalizeLocale(locale));
     }
+
+    /**
+     * Removes all locale bundles from the in-memory cache.
+     */
     public final void evictAll() {
         ensureOpen();
         this.loadedLocales.clear();
     }
+
+    /**
+     * Clears cached locale state and optionally shuts down the async executor.
+     *
+     * <p>The executor is shut down only when it is an {@link ExecutorService} and
+     * {@link RunicalOptions#shutdownAsyncExecutorOnClose()} is {@code true}. This method is
+     * idempotent.
+     */
     @Override public void close() {
         if (!this.closed.compareAndSet(false, true)) {
             return;
@@ -205,9 +457,31 @@ public abstract class BaseRunical implements AutoCloseable {
 
 
     //HELPERS
+    /**
+     * Normalizes a locale identifier using Runical's locale rules.
+     *
+     * <p>Normalization trims surrounding whitespace, replaces underscores with hyphens, and
+     * lower-cases the value.
+     *
+     * @param locale locale to normalize
+     * @return the normalized locale
+     * @throws NullPointerException if {@code locale} is {@code null}
+     * @throws IllegalArgumentException if {@code locale} is blank
+     */
     protected final String normalizeLocale(String locale) {
         return LocaleSupport.normalizeLocale(locale);
     }
+
+    /**
+     * Increments the retention count for a locale so cache cleanup will not evict it.
+     *
+     * <p>Subclasses should pair each call with {@link #releaseLocale(String)} once the locale is no
+     * longer actively referenced. Retaining a locale does not force it to load immediately.
+     *
+     * @param locale locale to retain
+     * @throws NullPointerException if {@code locale} is {@code null}
+     * @throws IllegalArgumentException if {@code locale} is blank
+     */
     protected final void retainLocale(String locale) {
         String normalizedLocale = this.normalizeLocale(locale);
         this.retainedLocales.compute(normalizedLocale, (ignored, count) -> {
@@ -218,6 +492,15 @@ public abstract class BaseRunical implements AutoCloseable {
             return count;
         });
     }
+
+    /**
+     * Decrements the retention count for a locale and evicts it immediately when the count reaches
+     * zero.
+     *
+     * @param locale locale to release
+     * @throws NullPointerException if {@code locale} is {@code null}
+     * @throws IllegalArgumentException if {@code locale} is blank
+     */
     protected final void releaseLocale(String locale) {
         String normalizedLocale = this.normalizeLocale(locale);
         AtomicBoolean evict = new AtomicBoolean();
@@ -232,6 +515,17 @@ public abstract class BaseRunical implements AutoCloseable {
             this.loadedLocales.remove(normalizedLocale);
         }
     }
+
+    /**
+     * Moves an existing retention from one locale to another.
+     *
+     * <p>If both locales normalize to the same value, no action is taken.
+     *
+     * @param oldLocale previously retained locale
+     * @param newLocale new locale to retain
+     * @throws NullPointerException if either locale is {@code null}
+     * @throws IllegalArgumentException if either locale is blank
+     */
     protected final void replaceRetainedLocale(String oldLocale, String newLocale) {
         String previous = this.normalizeLocale(oldLocale);
         String current = this.normalizeLocale(newLocale);
