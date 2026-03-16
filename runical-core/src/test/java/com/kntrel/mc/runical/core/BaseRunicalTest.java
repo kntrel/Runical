@@ -1,13 +1,18 @@
 package com.kntrel.mc.runical.core;
 
+import com.kntrel.mc.runical.core.internal.LocaleSupport;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -165,6 +170,82 @@ class BaseRunicalTest {
         );
     }
 
+    @Test
+    void materializesMissingBundledFilesAcrossFallbackSteps() {
+        BundledTestRunical runical = new BundledTestRunical(
+                this.tempDir,
+                RunicalOptions.builder().defaultLocale("en-us").build(),
+                Map.of(
+                        "es-mx", """
+                                messages:
+                                  exact: "Exact success"
+                                """,
+                        "es", """
+                                messages:
+                                  general: "General success"
+                                """,
+                        "es-ar", """
+                                messages:
+                                  sibling: "Sibling success"
+                                """,
+                        "en-us", """
+                                messages:
+                                  default: "Default success"
+                                """
+                )
+        );
+
+        ResolvedTranslation exact = runical.resolve("es-mx", "messages.exact");
+        assertEquals("Exact success", exact.value());
+        assertEquals(ResolutionSource.EXACT, exact.source());
+        assertTrue(Files.exists(this.tempDir.resolve("es-mx.yml")));
+
+        ResolvedTranslation general = runical.resolve("es-mx", "messages.general");
+        assertEquals("General success", general.value());
+        assertEquals("es", general.resolvedLocale());
+        assertEquals(ResolutionSource.GENERAL, general.source());
+        assertTrue(Files.exists(this.tempDir.resolve("es.yml")));
+
+        ResolvedTranslation sibling = runical.resolve("es-mx", "messages.sibling");
+        assertEquals("Sibling success", sibling.value());
+        assertEquals("es-ar", sibling.resolvedLocale());
+        assertEquals(ResolutionSource.SIBLING, sibling.source());
+        assertTrue(Files.exists(this.tempDir.resolve("es-ar.yml")));
+
+        ResolvedTranslation fallback = runical.resolve("fr-ca", "messages.default");
+        assertEquals("Default success", fallback.value());
+        assertEquals("en-us", fallback.resolvedLocale());
+        assertEquals(ResolutionSource.DEFAULT, fallback.source());
+        assertTrue(Files.exists(this.tempDir.resolve("en-us.yml")));
+
+        assertEquals(1, runical.lookupCount("es-mx"));
+        assertEquals(1, runical.lookupCount("es"));
+        assertEquals(1, runical.lookupCount("es-ar"));
+        assertEquals(1, runical.lookupCount("en-us"));
+    }
+
+    @Test
+    void doesNotMaterializeBundledFileWhenExistingLocaleIsMissingOnlyTheKey() throws Exception {
+        write("es.yml", """
+                messages:
+                  present: "Filesystem"
+                """);
+
+        BundledTestRunical runical = new BundledTestRunical(
+                this.tempDir,
+                RunicalOptions.builder().defaultLocale("es").build(),
+                Map.of(
+                        "es", """
+                                messages:
+                                  missing: "Bundled"
+                                """
+                )
+        );
+
+        assertEquals("messages.missing", runical.translate("es", "messages.missing"));
+        assertEquals(0, runical.lookupCount("es"));
+    }
+
     private void write(String fileName, String content) throws IOException {
         Files.writeString(this.tempDir.resolve(fileName), content);
     }
@@ -180,6 +261,51 @@ class BaseRunicalTest {
 
         private void release(String locale) {
             releaseLocale(locale);
+        }
+    }
+
+    private static final class BundledTestRunical extends BaseRunical {
+        private final Path languagesDirectory;
+        private final Map<String, String> bundledLocales;
+        private final ConcurrentHashMap<String, Integer> lookupCounts;
+
+        private BundledTestRunical(Path languagesDirectory, RunicalOptions options, Map<String, String> bundledLocales) {
+            super(languagesDirectory, options);
+            this.languagesDirectory = languagesDirectory;
+            this.bundledLocales = new HashMap<>();
+            bundledLocales.forEach((locale, content) -> this.bundledLocales.put(LocaleSupport.normalizeLocale(locale), content));
+            this.lookupCounts = new ConcurrentHashMap<>();
+        }
+
+        @Override
+        protected Optional<Path> resolveMissingLocaleFile(String locale) {
+            this.lookupCounts.merge(locale, 1, Integer::sum);
+
+            String content = this.bundledLocales.get(locale);
+            if (content == null) {
+                return Optional.empty();
+            }
+
+            Path path = this.languagesDirectory.resolve(locale + ".yml");
+            try {
+                Files.writeString(path, content);
+            } catch (IOException exception) {
+                throw new RuntimeException(exception);
+            }
+            return Optional.of(path);
+        }
+
+        @Override
+        protected List<String> additionalLocalesForLanguage(String language) {
+            String normalizedLanguage = LocaleSupport.normalizeLocale(language);
+            return this.bundledLocales.keySet().stream()
+                    .filter(locale -> LocaleSupport.languageOf(locale).equals(normalizedLanguage))
+                    .sorted()
+                    .toList();
+        }
+
+        private int lookupCount(String locale) {
+            return this.lookupCounts.getOrDefault(LocaleSupport.normalizeLocale(locale), 0);
         }
     }
 }

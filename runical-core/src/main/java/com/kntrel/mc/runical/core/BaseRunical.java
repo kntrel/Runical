@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -29,6 +31,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Stream;
 
 /**
  * Base implementation of the Runical locale resolver.
@@ -593,6 +596,36 @@ public abstract class BaseRunical implements AutoCloseable {
         this.releaseLocale(previous);
         this.retainLocale(current);
     }
+
+    /**
+     * Resolves a locale file when it is missing from the scanned language directory.
+     *
+     * <p>Subclasses can override this hook to lazily materialize locale files from another source,
+     * such as a bundled resource inside a plugin jar. The returned path should point to the file on
+     * disk that can be loaded by Runical.
+     *
+     * @param locale normalized locale identifier being requested
+     * @return the on-disk locale file path, or an empty result when no fallback file exists
+     */
+    protected Optional<Path> resolveMissingLocaleFile(String locale) {
+        return Optional.empty();
+    }
+
+    /**
+     * Discovers additional locales for a language from sources outside the scanned language
+     * directory.
+     *
+     * <p>Subclasses can override this hook when sibling fallback should consider locales that are
+     * not yet present on disk but can be materialized on demand by
+     * {@link #resolveMissingLocaleFile(String)}.
+     *
+     * @param language normalized language identifier such as {@code en}
+     * @return additional locale identifiers for the language
+     */
+    protected List<String> additionalLocalesForLanguage(String language) {
+        return List.of();
+    }
+
     private ResolvedTranslation resolveValue(String locale, String key, long accessSequence) {
         Optional<String> exactValue = this.findMessage(locale, key, accessSequence);
         if (exactValue.isPresent()) {
@@ -693,16 +726,34 @@ public abstract class BaseRunical implements AutoCloseable {
     }
     private List<String> siblingLocales(String locale, String generalLocale) {
         String language = LocaleSupport.languageOf(locale);
-        List<String> siblings = new ArrayList<>();
-        for (String candidate : this.localeIndex.get().localesForLanguage(language)) {
+        TreeSet<String> siblings = new TreeSet<>();
+
+        siblings.addAll(this.localeIndex.get().localesForLanguage(language));
+        siblings.addAll(this.directoryLocalesForLanguage(language));
+        for (String candidate : this.additionalLocalesForLanguage(language)) {
+            if (candidate == null) {
+                continue;
+            }
+            try {
+                String normalizedCandidate = this.normalizeLocale(candidate);
+                if (LocaleSupport.languageOf(normalizedCandidate).equals(language)) {
+                    siblings.add(normalizedCandidate);
+                }
+            } catch (IllegalArgumentException ignored) {
+                // Ignore invalid locale identifiers supplied by subclasses.
+            }
+        }
+
+        List<String> orderedSiblings = new ArrayList<>();
+        for (String candidate : siblings) {
             if (candidate.equals(locale) || candidate.equals(generalLocale)) {
                 continue;
             }
             if (LocaleSupport.isRegional(candidate)) {
-                siblings.add(candidate);
+                orderedSiblings.add(candidate);
             }
         }
-        return siblings;
+        return orderedSiblings;
     }
     private boolean alreadyAttempted(String requestedLocale, String generalLocale, String defaultLocale, List<String> siblingLocales) {
         if (requestedLocale.equals(defaultLocale) || generalLocale.equals(defaultLocale)) {
@@ -717,7 +768,7 @@ public abstract class BaseRunical implements AutoCloseable {
             return loadedBundle;
         }
 
-        Optional<Path> bundlePath = this.localeIndex.get().pathFor(locale);
+        Optional<Path> bundlePath = this.resolveBundlePath(locale);
         if (bundlePath.isEmpty()) {
             return null;
         }
@@ -810,6 +861,89 @@ public abstract class BaseRunical implements AutoCloseable {
     private boolean isRetained(String locale) {
         AtomicInteger retainedCount = this.retainedLocales.get(locale);
         return retainedCount != null && retainedCount.get() > 0;
+    }
+    private Optional<Path> resolveBundlePath(String locale) {
+        Optional<Path> indexedPath = this.localeIndex.get().pathFor(locale);
+        if (indexedPath.isPresent()) {
+            return indexedPath;
+        }
+
+        Optional<Path> directoryPath = this.findLocaleFileInDirectory(locale);
+        if (directoryPath.isPresent()) {
+            this.registerLocalePath(locale, directoryPath.get());
+            return directoryPath;
+        }
+
+        Optional<Path> materializedPath = this.resolveMissingLocaleFile(locale)
+                .map(path -> path.toAbsolutePath().normalize());
+        materializedPath.ifPresent(path -> this.registerLocalePath(locale, path));
+        return materializedPath;
+    }
+    private Optional<Path> findLocaleFileInDirectory(String locale) {
+        try {
+            Files.createDirectories(this.languagesDirectory);
+        } catch (IOException exception) {
+            LOGGER.warn("Unable to create or access language directory '{}'.", this.languagesDirectory, exception);
+            return Optional.empty();
+        }
+
+        try (Stream<Path> stream = Files.list(this.languagesDirectory)) {
+            return stream
+                    .filter(Files::isRegularFile)
+                    .filter(BaseRunical::isYamlFile)
+                    .sorted(Comparator.comparing(path -> path.getFileName().toString().toLowerCase(java.util.Locale.ROOT)))
+                    .filter(path -> locale.equals(localeFromFile(path).orElse(null)))
+                    .findFirst()
+                    .map(path -> path.toAbsolutePath().normalize());
+        } catch (IOException exception) {
+            LOGGER.warn("Unable to scan language directory '{}' while searching for locale '{}'.", this.languagesDirectory, locale, exception);
+            return Optional.empty();
+        }
+    }
+    private List<String> directoryLocalesForLanguage(String language) {
+        try {
+            Files.createDirectories(this.languagesDirectory);
+        } catch (IOException exception) {
+            LOGGER.warn("Unable to create or access language directory '{}'.", this.languagesDirectory, exception);
+            return List.of();
+        }
+
+        try (Stream<Path> stream = Files.list(this.languagesDirectory)) {
+            List<String> locales = stream
+                    .filter(Files::isRegularFile)
+                    .filter(BaseRunical::isYamlFile)
+                    .sorted(Comparator.comparing(path -> path.getFileName().toString().toLowerCase(java.util.Locale.ROOT)))
+                    .map(BaseRunical::localeFromFile)
+                    .flatMap(Optional::stream)
+                    .filter(locale -> LocaleSupport.languageOf(locale).equals(language))
+                    .toList();
+
+            for (String locale : locales) {
+                this.findLocaleFileInDirectory(locale).ifPresent(path -> this.registerLocalePath(locale, path));
+            }
+            return locales;
+        } catch (IOException exception) {
+            LOGGER.warn("Unable to scan language directory '{}' while collecting locales for language '{}'.", this.languagesDirectory, language, exception);
+            return List.of();
+        }
+    }
+    private void registerLocalePath(String locale, Path path) {
+        Path normalizedPath = path.toAbsolutePath().normalize();
+        this.localeIndex.updateAndGet(index -> index.withLocale(locale, normalizedPath));
+    }
+    private static Optional<String> localeFromFile(Path path) {
+        String fileName = path.getFileName().toString();
+        int extensionSeparator = fileName.lastIndexOf('.');
+        String rawLocale = extensionSeparator >= 0 ? fileName.substring(0, extensionSeparator) : fileName;
+        try {
+            return Optional.of(LocaleSupport.normalizeLocale(rawLocale));
+        } catch (IllegalArgumentException exception) {
+            return Optional.empty();
+        }
+    }
+    private static boolean isYamlFile(Path path) {
+        String name = path.getFileName().toString().toLowerCase(java.util.Locale.ROOT);
+        return name.endsWith(".yml") || name.endsWith(".yaml");
     }
     private static String requireKey(String key) {
         Objects.requireNonNull(key, "key");

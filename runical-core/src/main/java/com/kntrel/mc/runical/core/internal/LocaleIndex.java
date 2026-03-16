@@ -97,6 +97,28 @@ public final class LocaleIndex {
         return this.localesByLanguage.getOrDefault(LocaleSupport.normalizeLocale(language), List.of());
     }
 
+    public LocaleIndex withLocale(String locale, Path path) {
+        String normalizedLocale = LocaleSupport.normalizeLocale(locale);
+        Path normalizedPath = path.toAbsolutePath().normalize();
+        Path existing = this.localeFiles.get(normalizedLocale);
+        if (existing != null) {
+            return this;
+        }
+
+        Map<String, Path> localeFiles = new HashMap<>(this.localeFiles);
+        localeFiles.put(normalizedLocale, normalizedPath);
+
+        Map<String, List<String>> localesByLanguage = new HashMap<>(this.localesByLanguage);
+        String language = LocaleSupport.languageOf(normalizedLocale);
+        List<String> locales = new ArrayList<>(localesByLanguage.getOrDefault(language, List.of()));
+        if (!locales.contains(normalizedLocale)) {
+            locales.add(normalizedLocale);
+            Collections.sort(locales);
+        }
+        localesByLanguage.put(language, locales);
+        return new LocaleIndex(localeFiles, localesByLanguage);
+    }
+
     private static boolean isYamlFile(Path path) {
         String name = path.getFileName().toString().toLowerCase(java.util.Locale.ROOT);
         return name.endsWith(".yml") || name.endsWith(".yaml");
