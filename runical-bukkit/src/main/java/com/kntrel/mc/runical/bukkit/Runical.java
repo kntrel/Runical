@@ -185,6 +185,27 @@ public final class Runical extends BaseRunical implements Listener {
         }
 
         Path targetPath = this.plugin_.getDataFolder().toPath().resolve(resourcePath).toAbsolutePath().normalize();
+        return this.copyBundledResource(resourcePath, targetPath, "locale");
+    }
+
+    @Override
+    protected Optional<Path> resolveMissingTaggedFile(Path localeFile, Path referencedPath) {
+        Path dataFolderPath = this.plugin_.getDataFolder().toPath().toAbsolutePath().normalize();
+        Path normalizedReference = referencedPath.toAbsolutePath().normalize();
+
+        if (!normalizedReference.startsWith(dataFolderPath)) {
+            return Optional.empty();
+        }
+
+        String resourcePath = dataFolderPath.relativize(normalizedReference).toString().replace('\\', '/');
+        if (resourcePath.isBlank()) {
+            return Optional.empty();
+        }
+
+        return this.copyBundledResource(resourcePath, normalizedReference, "tagged file");
+    }
+
+    private Optional<Path> copyBundledResource(String resourcePath, Path targetPath, String resourceType) {
         if (Files.isRegularFile(targetPath)) {
             return Optional.of(targetPath);
         }
@@ -204,7 +225,7 @@ public final class Runical extends BaseRunical implements Listener {
             return Optional.of(targetPath);
         } catch (IOException exception) {
             this.plugin_.getLogger().warning(
-                    "Unable to copy bundled locale '" + resourcePath + "' to '" + targetPath + "': " + exception.getMessage()
+                    "Unable to copy bundled " + resourceType + " '" + resourcePath + "' to '" + targetPath + "': " + exception.getMessage()
             );
             return Optional.empty();
         }

@@ -90,6 +90,59 @@ class BaseRunicalTest {
     }
 
     @Test
+    void resolvesTaggedFileTranslationsRelativeToTheLocaleFile() throws Exception {
+        Path snippetsDirectory = Files.createDirectories(this.tempDir.resolve("snippets"));
+        Files.writeString(snippetsDirectory.resolve("deeds.txt"), "First line%nHello {player}".formatted());
+        write("en-us.yml", """
+                totem:
+                  region:
+                    deeds: !file ./snippets/deeds.txt
+                """);
+
+        TestRunical runical = new TestRunical(this.tempDir, RunicalOptions.builder().defaultLocale("en-us").build());
+
+        assertEquals(
+                "First line%nHello Alex".formatted(),
+                runical.translate("en-us", "totem.region.deeds", Placeholder.of("player", "Alex"))
+        );
+    }
+
+    @Test
+    void materializesMissingTaggedFilesThroughSubclassHook() throws Exception {
+        write("en-us.yml", """
+                totem:
+                  region:
+                    deeds: !file ./snippets/deeds.txt
+                """);
+
+        TaggedFileTestRunical runical = new TaggedFileTestRunical(
+                this.tempDir,
+                RunicalOptions.builder().defaultLocale("en-us").build(),
+                Map.of("snippets/deeds.txt", "Bundled {player}")
+        );
+
+        assertEquals("Bundled Alex", runical.translate("en-us", "totem.region.deeds", Placeholder.of("player", "Alex")));
+        assertTrue(Files.exists(this.tempDir.resolve("snippets").resolve("deeds.txt")));
+        assertEquals(1, runical.fileLookupCount("snippets/deeds.txt"));
+    }
+
+    @Test
+    void skipsMissingTaggedFileTranslationsWithoutDroppingTheWholeLocale() throws Exception {
+        write("en-us.yml", """
+                greeting:
+                  message: "Hello"
+                totem:
+                  region:
+                    deeds: !file ./snippets/missing.txt
+                """);
+
+        TestRunical runical = new TestRunical(this.tempDir, RunicalOptions.builder().defaultLocale("en-us").build());
+
+        assertEquals("Hello", runical.translate("en-us", "greeting.message"));
+        assertEquals("totem.region.deeds", runical.translate("en-us", "totem.region.deeds"));
+    }
+
+    @Test
     void formatsListsFromLocaleMetadataAndBuiltInFallback() throws Exception {
         write("en-us.yml", """
                 _runical:
@@ -261,6 +314,46 @@ class BaseRunicalTest {
 
         private void release(String locale) {
             releaseLocale(locale);
+        }
+    }
+
+    private static final class TaggedFileTestRunical extends BaseRunical {
+        private final Path languagesDirectory;
+        private final Map<String, String> bundledFiles;
+        private final ConcurrentHashMap<String, Integer> fileLookupCounts;
+
+        private TaggedFileTestRunical(Path languagesDirectory, RunicalOptions options, Map<String, String> bundledFiles) {
+            super(languagesDirectory, options);
+            this.languagesDirectory = languagesDirectory;
+            this.bundledFiles = new HashMap<>(bundledFiles);
+            this.fileLookupCounts = new ConcurrentHashMap<>();
+        }
+
+        @Override
+        protected Optional<Path> resolveMissingTaggedFile(Path localeFile, Path referencedPath) {
+            Path relativePath = this.languagesDirectory.toAbsolutePath().normalize().relativize(referencedPath.toAbsolutePath().normalize());
+            String key = relativePath.toString().replace('\\', '/');
+            this.fileLookupCounts.merge(key, 1, Integer::sum);
+
+            String content = this.bundledFiles.get(key);
+            if (content == null) {
+                return Optional.empty();
+            }
+
+            try {
+                Path parent = referencedPath.getParent();
+                if (parent != null) {
+                    Files.createDirectories(parent);
+                }
+                Files.writeString(referencedPath, content);
+            } catch (IOException exception) {
+                throw new RuntimeException(exception);
+            }
+            return Optional.of(referencedPath);
+        }
+
+        private int fileLookupCount(String relativePath) {
+            return this.fileLookupCounts.getOrDefault(relativePath, 0);
         }
     }
 

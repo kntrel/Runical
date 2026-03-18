@@ -612,6 +612,20 @@ public abstract class BaseRunical implements AutoCloseable {
     }
 
     /**
+     * Resolves a filesystem path referenced by a {@code !file} tag when it is missing on disk.
+     *
+     * <p>Subclasses can override this hook to lazily materialize tagged translation files from
+     * another source, such as bundled plugin resources. Both paths are absolute and normalized.
+     *
+     * @param localeFile absolute locale YAML file path that contained the {@code !file} tag
+     * @param referencedPath absolute filesystem path requested by the tag
+     * @return the on-disk referenced file path, or an empty result when no fallback file exists
+     */
+    protected Optional<Path> resolveMissingTaggedFile(Path localeFile, Path referencedPath) {
+        return Optional.empty();
+    }
+
+    /**
      * Discovers additional locales for a language from sources outside the scanned language
      * directory.
      *
@@ -781,7 +795,7 @@ public abstract class BaseRunical implements AutoCloseable {
         }
 
         try {
-            LocaleBundle bundle = YamlLocaleLoader.load(locale, bundlePath.get(), loadVersion, LOGGER);
+            LocaleBundle bundle = YamlLocaleLoader.load(locale, bundlePath.get(), loadVersion, LOGGER, this::resolveMissingTaggedFile);
             bundle.touch(accessSequence);
             if (loadVersion == this.indexVersion.get()) {
                 this.loadedLocales.put(locale, bundle);

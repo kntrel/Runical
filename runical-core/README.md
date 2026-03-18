@@ -97,6 +97,20 @@ This produces the keys:
 Non-string scalar values are converted to strings when loaded, so values like numbers and booleans
 are valid translation values.
 
+Tagged `!file` scalar values load their translation text from the filesystem instead of using the
+path literal itself. Relative paths are resolved from the locale YAML file's directory.
+
+Example:
+
+```yaml
+totem:
+  region:
+    deeds: !file ./snippets/deeds.txt
+```
+
+If `./snippets/deeds.txt` contains `Hello {player}`, then `totem.region.deeds` resolves to that
+file content and still participates in normal placeholder rendering.
+
 The `_runical` root key is reserved for metadata. It is not flattened into translation keys.
 
 ## Placeholder rendering
