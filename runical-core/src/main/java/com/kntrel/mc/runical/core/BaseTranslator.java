@@ -17,7 +17,9 @@ public interface BaseTranslator {
      *
      * @return the dot-separated path prefix, or an empty string for the root translator
      */
-    String getPath_();
+    String getPath();
+
+    BaseRunical getRoot();
 
     /**
      * Returns a child translator rooted at the given path segment.
@@ -43,7 +45,7 @@ public interface BaseTranslator {
      * be escaped with doubled braces such as <code>{{</code> and <code>}}</code>.
      *
      * @param locale requested locale
-     * @param key dot-separated translation key, resolved relative to {@link #getPath_()} when this
+     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
      *            translator is a child node
      * @param args placeholders used to render the resolved translation
      * @return the rendered translation, or {@code key} when no translation was found
@@ -58,7 +60,7 @@ public interface BaseTranslator {
      * Resolves a translation without placeholders.
      *
      * @param locale requested locale
-     * @param key dot-separated translation key, resolved relative to {@link #getPath_()} when this
+     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
      *            translator is a child node
      * @return the rendered translation, or {@code key} when no translation was found
      */
@@ -71,7 +73,7 @@ public interface BaseTranslator {
      * when the translation cannot be found.
      *
      * @param locale requested locale
-     * @param key dot-separated translation key, resolved relative to {@link #getPath_()} when this
+     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
      *            translator is a child node
      * @param args placeholders used to render the resolved translation
      * @return a future completing with the rendered translation or {@code key}
@@ -84,7 +86,7 @@ public interface BaseTranslator {
      * Asynchronously resolves a translation without placeholders.
      *
      * @param locale requested locale
-     * @param key dot-separated translation key, resolved relative to {@link #getPath_()} when this
+     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
      *            translator is a child node
      * @return a future completing with the rendered translation or {@code key}
      */
@@ -96,7 +98,7 @@ public interface BaseTranslator {
      * Resolves a translation and returns {@code null} when no translation is available.
      *
      * @param locale requested locale
-     * @param key dot-separated translation key, resolved relative to {@link #getPath_()} when this
+     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
      *            translator is a child node
      * @param args placeholders used to render the resolved translation
      * @return the rendered translation, or {@code null} when the key could not be resolved
@@ -109,7 +111,7 @@ public interface BaseTranslator {
      * Resolves a translation without placeholders and returns {@code null} when unavailable.
      *
      * @param locale requested locale
-     * @param key dot-separated translation key, resolved relative to {@link #getPath_()} when this
+     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
      *            translator is a child node
      * @return the rendered translation, or {@code null} when the key could not be resolved
      */
@@ -121,7 +123,7 @@ public interface BaseTranslator {
      * Resolves a translation and returns {@code defaultValue} when no translation is available.
      *
      * @param locale requested locale
-     * @param key dot-separated translation key, resolved relative to {@link #getPath_()} when this
+     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
      *            translator is a child node
      * @param defaultValue fallback value returned when the key could not be resolved
      * @param args placeholders used to render the resolved translation
@@ -134,7 +136,7 @@ public interface BaseTranslator {
      * unavailable.
      *
      * @param locale requested locale
-     * @param key dot-separated translation key, resolved relative to {@link #getPath_()} when this
+     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
      *            translator is a child node
      * @param defaultValue fallback value returned when the key could not be resolved
      * @return the rendered translation, or {@code defaultValue} when the key could not be resolved
@@ -147,7 +149,7 @@ public interface BaseTranslator {
      * Asynchronously resolves a translation and returns {@code null} when unavailable.
      *
      * @param locale requested locale
-     * @param key dot-separated translation key, resolved relative to {@link #getPath_()} when this
+     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
      *            translator is a child node
      * @param args placeholders used to render the resolved translation
      * @return a future completing with the rendered translation or {@code null}
@@ -161,7 +163,7 @@ public interface BaseTranslator {
      * unavailable.
      *
      * @param locale requested locale
-     * @param key dot-separated translation key, resolved relative to {@link #getPath_()} when this
+     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
      *            translator is a child node
      * @return a future completing with the rendered translation or {@code null}
      */
@@ -173,7 +175,7 @@ public interface BaseTranslator {
      * Asynchronously resolves a translation and returns {@code defaultValue} when unavailable.
      *
      * @param locale requested locale
-     * @param key dot-separated translation key, resolved relative to {@link #getPath_()} when this
+     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
      *            translator is a child node
      * @param defaultValue fallback value returned when the key could not be resolved
      * @param args placeholders used to render the resolved translation
@@ -186,7 +188,7 @@ public interface BaseTranslator {
      * when unavailable.
      *
      * @param locale requested locale
-     * @param key dot-separated translation key, resolved relative to {@link #getPath_()} when this
+     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
      *            translator is a child node
      * @param defaultValue fallback value returned when the key could not be resolved
      * @return a future completing with the rendered translation or {@code defaultValue}
@@ -204,7 +206,7 @@ public interface BaseTranslator {
      * resolved locale are {@code null} and the source is {@link ResolutionSource#UNRESOLVED}.
      *
      * @param locale requested locale
-     * @param key dot-separated translation key, resolved relative to {@link #getPath_()} when this
+     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
      *            translator is a child node
      * @param args placeholders used to render the resolved translation
      * @return detailed lookup metadata
@@ -217,7 +219,7 @@ public interface BaseTranslator {
      * Resolves a translation without placeholders and returns full lookup metadata.
      *
      * @param locale requested locale
-     * @param key dot-separated translation key, resolved relative to {@link #getPath_()} when this
+     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
      *            translator is a child node
      * @return detailed lookup metadata
      */
@@ -229,7 +231,7 @@ public interface BaseTranslator {
      * Asynchronously resolves a translation and returns full lookup metadata.
      *
      * @param locale requested locale
-     * @param key dot-separated translation key, resolved relative to {@link #getPath_()} when this
+     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
      *            translator is a child node
      * @param args placeholders used to render the resolved translation
      * @return a future completing with detailed lookup metadata
@@ -240,7 +242,7 @@ public interface BaseTranslator {
      * Asynchronously resolves a translation without placeholders and returns full lookup metadata.
      *
      * @param locale requested locale
-     * @param key dot-separated translation key, resolved relative to {@link #getPath_()} when this
+     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
      *            translator is a child node
      * @return a future completing with detailed lookup metadata
      */

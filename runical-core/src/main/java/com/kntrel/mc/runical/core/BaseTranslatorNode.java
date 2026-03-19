@@ -17,8 +17,13 @@ final class BaseTranslatorNode implements BaseTranslator {
 
 
     @Override
-    public String getPath_() {
+    public String getPath() {
         return this.path_;
+    }
+
+    @Override
+    public BaseRunical getRoot() {
+        return this.root_;
     }
 
     @Override

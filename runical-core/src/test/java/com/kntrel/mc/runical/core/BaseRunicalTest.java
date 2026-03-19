@@ -156,8 +156,8 @@ class BaseRunicalTest {
         TestRunical runical = new TestRunical(this.tempDir, RunicalOptions.builder().defaultLocale("en-us").build());
         BaseTranslator regionTranslator = runical.getChild("totem").getChild("region");
 
-        assertEquals("totem", runical.getChild("totem").getPath_());
-        assertEquals("totem.region", regionTranslator.getPath_());
+        assertEquals("totem", runical.getChild("totem").getPath());
+        assertEquals("totem.region", regionTranslator.getPath());
         assertEquals(
                 runical.translate("en-us", "totem.region.naming.default", Placeholder.of("player", "Alex")),
                 regionTranslator.translate("en-us", "naming.default", Placeholder.of("player", "Alex"))

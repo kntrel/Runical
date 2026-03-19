@@ -53,7 +53,7 @@ import java.util.stream.Stream;
  * and acts as the root of a translator tree, where child translators qualify keys relative to a
  * fixed dot-separated path.
  *
- * <p>All public instance methods except {@link #close()} and {@link #getPath_()} throw
+ * <p>All public instance methods except {@link #close()} and {@link #getPath()} throw
  * {@link IllegalStateException} after the instance has been closed.
  */
 public abstract class BaseRunical implements BaseTranslator, AutoCloseable {
@@ -120,8 +120,13 @@ public abstract class BaseRunical implements BaseTranslator, AutoCloseable {
 
     //API
     @Override
-    public final String getPath_() {
+    public final String getPath() {
         return "";
+    }
+
+    @Override
+    public final BaseRunical getRoot() {
+        return this;
     }
 
     @Override
