@@ -17,6 +17,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BaseRunicalTest {
@@ -140,6 +142,51 @@ class BaseRunicalTest {
 
         assertEquals("Hello", runical.translate("en-us", "greeting.message"));
         assertEquals("totem.region.deeds", runical.translate("en-us", "totem.region.deeds"));
+    }
+
+    @Test
+    void resolvesRelativeKeysThroughChildTranslators() throws Exception {
+        write("en-us.yml", """
+                totem:
+                  region:
+                    naming:
+                      default: "Named {player}"
+                """);
+
+        TestRunical runical = new TestRunical(this.tempDir, RunicalOptions.builder().defaultLocale("en-us").build());
+        BaseTranslator regionTranslator = runical.getChild("totem").getChild("region");
+
+        assertEquals("totem", runical.getChild("totem").getPath_());
+        assertEquals("totem.region", regionTranslator.getPath_());
+        assertEquals(
+                runical.translate("en-us", "totem.region.naming.default", Placeholder.of("player", "Alex")),
+                regionTranslator.translate("en-us", "naming.default", Placeholder.of("player", "Alex"))
+        );
+
+        ResolvedTranslation unresolved = regionTranslator.resolve("en-us", "missing.key");
+        assertEquals("totem.region.missing.key", unresolved.key());
+        assertEquals("totem.region.missing.key", unresolved.orKey());
+    }
+
+    @Test
+    void cachesChildTranslatorsAndRejectsDottedSegments() throws Exception {
+        write("en-us.yml", """
+                totem:
+                  region:
+                    value: "ok"
+                """);
+
+        TestRunical runical = new TestRunical(this.tempDir, RunicalOptions.builder().defaultLocale("en-us").build());
+
+        BaseTranslator totem = runical.getChild("totem");
+        BaseTranslator sameTotem = runical.getChild("totem");
+        BaseTranslator region = totem.getChild("region");
+        BaseTranslator sameRegion = runical.getChild("totem").getChild("region");
+
+        assertSame(totem, sameTotem);
+        assertSame(region, sameRegion);
+        assertThrows(IllegalArgumentException.class, () -> runical.getChild("totem.region"));
+        assertThrows(IllegalArgumentException.class, () -> totem.getChild(" "));
     }
 
     @Test

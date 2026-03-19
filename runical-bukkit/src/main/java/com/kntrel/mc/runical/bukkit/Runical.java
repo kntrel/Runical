@@ -1,6 +1,7 @@
 package com.kntrel.mc.runical.bukkit;
 
 import com.kntrel.mc.runical.core.BaseRunical;
+import com.kntrel.mc.runical.core.BaseTranslator;
 import com.kntrel.mc.runical.core.ListStyle;
 import com.kntrel.mc.runical.core.Placeholder;
 import com.kntrel.mc.runical.core.ResolvedTranslation;
@@ -38,7 +39,7 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.stream.Stream;
 
-public final class Runical extends BaseRunical implements Listener {
+public final class Runical extends BaseRunical implements Translator, Listener {
 
     //FIELDS
     private final Plugin plugin_;
@@ -64,94 +65,54 @@ public final class Runical extends BaseRunical implements Listener {
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
-    public String translate(Player player, String key, Placeholder... args) {
-        return translate(localeOf(player), key, args);
+    /** {@inheritDoc} */
+    @Override
+    public Translator getChild(String segment) {
+        return (Translator) super.getChild(segment);
     }
 
-    public String translate(Player player, String key) {
-        return translate(player, key, new Placeholder[0]);
-    }
-
-    public CompletableFuture<String> translateAsync(Player player, String key, Placeholder... args) {
-        return this.translateAsync(localeOf(player), key, args);
-    }
-
-    public CompletableFuture<String> translateAsync(Player player, String key) {
-        return this.translateAsync(player, key, new Placeholder[0]);
-    }
-
-    public String translateOrNull(Player player, String key, Placeholder... args) {
-        return this.translateOrNull(localeOf(player), key, args);
-    }
-
-    public String translateOrNull(Player player, String key) {
-        return this.translateOrNull(player, key, new Placeholder[0]);
-    }
-
+    /** {@inheritDoc} */
+    @Override
     public String translateOrDefault(Player player, String key, String defaultValue, Placeholder... args) {
         return this.translateOrDefault(localeOf(player), key, defaultValue, args);
     }
 
-    public String translateOrDefault(Player player, String key, String defaultValue) {
-        return this.translateOrDefault(player, key, defaultValue, new Placeholder[0]);
-    }
-
-    public CompletableFuture<String> translateOrNullAsync(Player player, String key, Placeholder... args) {
-        return this.translateOrNullAsync(localeOf(player), key, args);
-    }
-
-    public CompletableFuture<String> translateOrNullAsync(Player player, String key) {
-        return this.translateOrNullAsync(player, key, new Placeholder[0]);
-    }
-
+    /** {@inheritDoc} */
+    @Override
     public CompletableFuture<String> translateOrDefaultAsync(Player player, String key, String defaultValue, Placeholder... args) {
         return this.translateOrDefaultAsync(localeOf(player), key, defaultValue, args);
     }
 
-    public CompletableFuture<String> translateOrDefaultAsync(Player player, String key, String defaultValue) {
-        return this.translateOrDefaultAsync(player, key, defaultValue, new Placeholder[0]);
-    }
-
+    /** {@inheritDoc} */
+    @Override
     public ResolvedTranslation resolve(Player player, String key, Placeholder... args) {
         return this.resolve(localeOf(player), key, args);
     }
 
-    public ResolvedTranslation resolve(Player player, String key) {
-        return this.resolve(player, key, new Placeholder[0]);
-    }
-
+    /** {@inheritDoc} */
+    @Override
     public CompletableFuture<ResolvedTranslation> resolveAsync(Player player, String key, Placeholder... args) {
         return this.resolveAsync(localeOf(player), key, args);
     }
 
-    public CompletableFuture<ResolvedTranslation> resolveAsync(Player player, String key) {
-        return this.resolveAsync(player, key, new Placeholder[0]);
-    }
-
-    public String formatList(Player player, Collection<?> items) {
-        return this.formatList(player, items, ListStyle.AND);
-    }
-
+    /** {@inheritDoc} */
+    @Override
     public String formatList(Player player, Collection<?> items, ListStyle style) {
         return this.formatList(localeOf(player), items, style);
     }
 
+    /** {@inheritDoc} */
+    @Override
     public CompletableFuture<Boolean> sendTranslation(Player player, String key, Placeholder... args) {
         String locale = localeOf(player);
         return this.sendMessage(player, resolveAsync(locale, key, args).thenApply(ResolvedTranslation::orKey));
     }
 
-    public CompletableFuture<Boolean> sendTranslation(Player player, String key) {
-        return sendTranslation(player, key, new Placeholder[0]);
-    }
-
+    /** {@inheritDoc} */
+    @Override
     public CompletableFuture<Boolean> sendTranslationOrDefault(Player player, String key, String defaultValue, Placeholder... args) {
         String locale = localeOf(player);
         return sendMessage(player, translateOrDefaultAsync(locale, key, defaultValue, args));
-    }
-
-    public CompletableFuture<Boolean> sendTranslationOrDefault(Player player, String key, String defaultValue) {
-        return sendTranslationOrDefault(player, key, defaultValue, new Placeholder[0]);
     }
 
     @EventHandler
@@ -236,7 +197,17 @@ public final class Runical extends BaseRunical implements Listener {
         return this.bundledLocaleIndex().localesForLanguage(language);
     }
 
-    private String localeOf(Player player) {
+    @Override
+    protected BaseTranslator createChildTranslator(String path) {
+        return new TranslatorNode(this, path);
+    }
+
+    @Override
+    protected Translator childTranslator(String path) {
+        return (Translator) super.childTranslator(path);
+    }
+
+    String localeOf(Player player) {
         Objects.requireNonNull(player, "player");
         UUID playerId = player.getUniqueId();
         if (Bukkit.isPrimaryThread()) {
@@ -273,7 +244,7 @@ public final class Runical extends BaseRunical implements Listener {
         return normalizedLocale;
     }
 
-    private CompletableFuture<Boolean> sendMessage(Player player, CompletableFuture<String> messageFuture) {
+    CompletableFuture<Boolean> sendMessage(Player player, CompletableFuture<String> messageFuture) {
         Objects.requireNonNull(player, "player");
         UUID playerId = player.getUniqueId();
 

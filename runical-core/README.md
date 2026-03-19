@@ -9,6 +9,7 @@ synchronous and asynchronous lookups.
 - Directory-backed locale loading from `.yml` and `.yaml` files
 - Locale fallback from exact locale to general language, sibling regional locales, and a default locale
 - Named placeholder rendering with brace escaping
+- Path-scoped child translators through `getChild(...)`
 - Locale-aware list formatting for `and` and `or` styles
 - Lazy loading with cache eviction controls
 - Protected retention hooks for platform adapters that track active user locales
@@ -16,7 +17,8 @@ synchronous and asynchronous lookups.
 ## Quick start
 
 `BaseRunical` is abstract so integrations can expose their own constructor or add platform-specific
-behavior. A minimal wrapper looks like this:
+behavior. It also implements `BaseTranslator`, so the root resolver and child translators share the
+same key-lookup contract. A minimal wrapper looks like this:
 
 ```java
 import com.kntrel.mc.runical.core.BaseRunical;
@@ -47,6 +49,9 @@ try (RunicalCore runical = new RunicalCore(
             "greeting.message",
             Placeholder.of("player", "Alex")
     );
+
+    BaseTranslator regionTranslator = runical.getChild("totem").getChild("region");
+    String regionName = regionTranslator.translate("es-mx", "naming.default");
 
     ResolvedTranslation resolved = runical.resolve("fr-ca", "greeting.message");
     String list = runical.formatList("es-mx", java.util.List.of("A", "B", "C"));
@@ -171,6 +176,21 @@ Behavior by API:
 `ResolvedTranslation` also tells you which locale actually provided the translation through
 `resolvedLocale()` and which fallback branch succeeded through `source()`.
 
+## Translator tree
+
+Runical translators can be scoped to a fixed key path. The root `BaseRunical` instance acts as the
+root translator, and each call to `getChild(...)` adds one path segment.
+
+```java
+BaseTranslator regionTranslator = runical.getChild("totem").getChild("region");
+
+String rootValue = runical.translate("en-us", "totem.region.naming.default");
+String childValue = regionTranslator.translate("en-us", "naming.default");
+```
+
+Those two lookups are equivalent. Child translators do not have their own cache or fallback logic;
+they only prepend their path and delegate back to the root resolver.
+
 ## List formatting
 
 Runical can format a collection into a localized natural-language list:
@@ -226,6 +246,7 @@ The main user-facing methods on `BaseRunical` are:
 - `translate(...)`: resolve a translation and fall back to the key
 - `translateOrNull(...)`: resolve a translation and fall back to `null`
 - `resolve(...)`: resolve a translation and keep the lookup metadata
+- `getChild(...)`: create a child translator rooted at a key prefix
 - `formatList(...)`: format a collection using localized list rules
 - `translateAsync(...)`, `translateOrNullAsync(...)`, `resolveAsync(...)`: async equivalents
 - `hasLocale(...)`: check whether a locale file exists in the current index

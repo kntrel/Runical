@@ -49,12 +49,14 @@ import java.util.stream.Stream;
  * {@link RunicalOptions}, or on a virtual-thread-per-task executor when none is provided.
  *
  * <p>Subclass this type to expose a concrete constructor or to integrate locale retention with a
- * higher-level platform abstraction.
+ * higher-level platform abstraction. {@link BaseRunical} also implements {@link BaseTranslator}
+ * and acts as the root of a translator tree, where child translators qualify keys relative to a
+ * fixed dot-separated path.
  *
- * <p>All public instance methods except {@link #close()} throw {@link IllegalStateException} after
- * the instance has been closed.
+ * <p>All public instance methods except {@link #close()} and {@link #getPath_()} throw
+ * {@link IllegalStateException} after the instance has been closed.
  */
-public abstract class BaseRunical implements AutoCloseable {
+public abstract class BaseRunical implements BaseTranslator, AutoCloseable {
 
     //CONSTANTS
     private static final Logger LOGGER = LoggerFactory.getLogger(BaseRunical.class);
@@ -74,6 +76,7 @@ public abstract class BaseRunical implements AutoCloseable {
     private final ConcurrentHashMap<String, LocaleBundle> loadedLocales;
     private final ConcurrentHashMap<String, CompletableFuture<LocaleBundle>> inFlightLoads;
     private final ConcurrentHashMap<String, AtomicInteger> retainedLocales;
+    private final ConcurrentHashMap<String, BaseTranslator> childTranslators;
 
 
     //CONSTRUCTOR
@@ -100,6 +103,7 @@ public abstract class BaseRunical implements AutoCloseable {
         this.loadedLocales = new ConcurrentHashMap<>();
         this.inFlightLoads = new ConcurrentHashMap<>();
         this.retainedLocales = new ConcurrentHashMap<>();
+        this.childTranslators = new ConcurrentHashMap<>();
 
         Executor configuredExecutor = this.options.asyncExecutor();
         if (configuredExecutor != null) {
@@ -115,146 +119,26 @@ public abstract class BaseRunical implements AutoCloseable {
 
 
     //API
-    /**
-     * Resolves a translation and returns either the rendered translation or the key when the
-     * translation cannot be found.
-     *
-     * <p>Locale identifiers are normalized by trimming whitespace, converting underscores to
-     * hyphens, and lower-casing the value. Placeholder values are rendered only when a translation
-     * is found. Null placeholder entries are ignored, placeholder values are converted with
-     * {@link String#valueOf(Object)}, missing placeholders remain unchanged, and literal braces can
-     * be escaped with doubled braces such as <code>{{</code> and <code>}}</code>.
-     *
-     * @param locale requested locale
-     * @param key dot-separated translation key
-     * @param args placeholders used to render the resolved translation
-     * @return the rendered translation, or {@code key} when no translation was found
-     * @throws NullPointerException if {@code locale} or {@code key} is {@code null}
-     * @throws IllegalArgumentException if {@code locale} or {@code key} is blank
-     */
-    public final String translate(String locale, String key, Placeholder... args) {
-        return this.resolve(locale, key, args).orKey();
+    @Override
+    public final String getPath_() {
+        return "";
     }
 
-    /**
-     * Resolves a translation without placeholders.
-     *
-     * @param locale requested locale
-     * @param key dot-separated translation key
-     * @return the rendered translation, or {@code key} when no translation was found
-     */
-    public final String translate(String locale, String key) {
-        return translate(locale, key, new Placeholder[0]);
+    @Override
+    public BaseTranslator getChild(String segment) {
+        return this.childTranslator(requireChildPath(segment));
     }
 
-    /**
-     * Asynchronously resolves a translation and returns either the rendered translation or the key
-     * when the translation cannot be found.
-     *
-     * @param locale requested locale
-     * @param key dot-separated translation key
-     * @param args placeholders used to render the resolved translation
-     * @return a future completing with the rendered translation or {@code key}
-     */
-    public final CompletableFuture<String> translateAsync(String locale, String key, Placeholder... args) {
-        return this.resolveAsync(locale, key, args).thenApply(ResolvedTranslation::orKey);
-    }
-
-    /**
-     * Asynchronously resolves a translation without placeholders.
-     *
-     * @param locale requested locale
-     * @param key dot-separated translation key
-     * @return a future completing with the rendered translation or {@code key}
-     */
-    public final CompletableFuture<String> translateAsync(String locale, String key) {
-        return this.translateAsync(locale, key, new Placeholder[0]);
-    }
-
-    /**
-     * Resolves a translation and returns {@code null} when no translation is available.
-     *
-     * @param locale requested locale
-     * @param key dot-separated translation key
-     * @param args placeholders used to render the resolved translation
-     * @return the rendered translation, or {@code null} when the key could not be resolved
-     */
-    public final String translateOrNull(String locale, String key, Placeholder... args) {
-        return this.resolve(locale, key, args).value();
-    }
-
-    /**
-     * Resolves a translation without placeholders and returns {@code null} when unavailable.
-     *
-     * @param locale requested locale
-     * @param key dot-separated translation key
-     * @return the rendered translation, or {@code null} when the key could not be resolved
-     */
-    public final String translateOrNull(String locale, String key) {
-        return this.translateOrNull(locale, key, new Placeholder[0]);
-    }
-
-    /**
-     * Resolves a translation and returns {@code defaultValue} when no translation is available.
-     *
-     * @param locale requested locale
-     * @param key dot-separated translation key
-     * @param defaultValue fallback value returned when the key could not be resolved
-     * @param args placeholders used to render the resolved translation
-     * @return the rendered translation, or {@code defaultValue} when the key could not be resolved
-     */
+    /** {@inheritDoc} */
+    @Override
     public final String translateOrDefault(String locale, String key, String defaultValue, Placeholder... args) {
         Objects.requireNonNull(defaultValue, "defaultValue");
         String value = this.resolve(locale, key, args).value();
         return value != null ? value : this.renderMessage(defaultValue, args);
     }
 
-    /**
-     * Resolves a translation without placeholders and returns {@code defaultValue} when
-     * unavailable.
-     *
-     * @param locale requested locale
-     * @param key dot-separated translation key
-     * @param defaultValue fallback value returned when the key could not be resolved
-     * @return the rendered translation, or {@code defaultValue} when the key could not be resolved
-     */
-    public final String translateOrDefault(String locale, String key, String defaultValue) {
-        return this.translateOrDefault(locale, key, defaultValue, new Placeholder[0]);
-    }
-
-    /**
-     * Asynchronously resolves a translation and returns {@code null} when unavailable.
-     *
-     * @param locale requested locale
-     * @param key dot-separated translation key
-     * @param args placeholders used to render the resolved translation
-     * @return a future completing with the rendered translation or {@code null}
-     */
-    public final CompletableFuture<String> translateOrNullAsync(String locale, String key, Placeholder... args) {
-        return this.resolveAsync(locale, key, args).thenApply(ResolvedTranslation::value);
-    }
-
-    /**
-     * Asynchronously resolves a translation without placeholders and returns {@code null} when
-     * unavailable.
-     *
-     * @param locale requested locale
-     * @param key dot-separated translation key
-     * @return a future completing with the rendered translation or {@code null}
-     */
-    public final CompletableFuture<String> translateOrNullAsync(String locale, String key) {
-        return this.translateOrNullAsync(locale, key, new Placeholder[0]);
-    }
-
-    /**
-     * Asynchronously resolves a translation and returns {@code defaultValue} when unavailable.
-     *
-     * @param locale requested locale
-     * @param key dot-separated translation key
-     * @param defaultValue fallback value returned when the key could not be resolved
-     * @param args placeholders used to render the resolved translation
-     * @return a future completing with the rendered translation or {@code defaultValue}
-     */
+    /** {@inheritDoc} */
+    @Override
     public final CompletableFuture<String> translateOrDefaultAsync(String locale, String key, String defaultValue, Placeholder... args) {
         Objects.requireNonNull(defaultValue, "defaultValue");
         return this.resolveAsync(locale, key, args).thenApply(resolved -> {
@@ -263,34 +147,8 @@ public abstract class BaseRunical implements AutoCloseable {
         });
     }
 
-    /**
-     * Asynchronously resolves a translation without placeholders and returns
-     * {@code defaultValue} when unavailable.
-     *
-     * @param locale requested locale
-     * @param key dot-separated translation key
-     * @param defaultValue fallback value returned when the key could not be resolved
-     * @return a future completing with the rendered translation or {@code defaultValue}
-     */
-    public final CompletableFuture<String> translateOrDefaultAsync(String locale, String key, String defaultValue) {
-        return this.translateOrDefaultAsync(locale, key, defaultValue, new Placeholder[0]);
-    }
-
-    /**
-     * Resolves a translation and returns full metadata about the lookup.
-     *
-     * <p>When a translation is found, the returned value contains the requested locale, the final
-     * locale that supplied the translation, the rendered value, and the {@link ResolutionSource}
-     * describing which fallback branch succeeded. When a translation is not found, the value and
-     * resolved locale are {@code null} and the source is {@link ResolutionSource#UNRESOLVED}.
-     *
-     * @param locale requested locale
-     * @param key dot-separated translation key
-     * @param args placeholders used to render the resolved translation
-     * @return detailed lookup metadata
-     * @throws NullPointerException if {@code locale} or {@code key} is {@code null}
-     * @throws IllegalArgumentException if {@code locale} or {@code key} is blank
-     */
+    /** {@inheritDoc} */
+    @Override
     public final ResolvedTranslation resolve(String locale, String key, Placeholder... args) {
         this.ensureOpen();
         String normalizedLocale = this.normalizeLocale(locale);
@@ -314,39 +172,11 @@ public abstract class BaseRunical implements AutoCloseable {
         );
     }
 
-    /**
-     * Resolves a translation without placeholders and returns full lookup metadata.
-     *
-     * @param locale requested locale
-     * @param key dot-separated translation key
-     * @return detailed lookup metadata
-     */
-    public final ResolvedTranslation resolve(String locale, String key) {
-        return resolve(locale, key, new Placeholder[0]);
-    }
-
-    /**
-     * Asynchronously resolves a translation and returns full lookup metadata.
-     *
-     * @param locale requested locale
-     * @param key dot-separated translation key
-     * @param args placeholders used to render the resolved translation
-     * @return a future completing with detailed lookup metadata
-     */
+    /** {@inheritDoc} */
+    @Override
     public final CompletableFuture<ResolvedTranslation> resolveAsync(String locale, String key, Placeholder... args) {
         ensureOpen();
         return CompletableFuture.supplyAsync(() -> resolve(locale, key, args), this.asyncExecutor);
-    }
-
-    /**
-     * Asynchronously resolves a translation without placeholders and returns full lookup metadata.
-     *
-     * @param locale requested locale
-     * @param key dot-separated translation key
-     * @return a future completing with detailed lookup metadata
-     */
-    public final CompletableFuture<ResolvedTranslation> resolveAsync(String locale, String key) {
-        return resolveAsync(locale, key, new Placeholder[0]);
     }
 
     /**
@@ -506,6 +336,7 @@ public abstract class BaseRunical implements AutoCloseable {
             return;
         }
 
+        this.childTranslators.clear();
         this.loadedLocales.clear();
         this.inFlightLoads.clear();
         this.retainedLocales.clear();
@@ -638,6 +469,15 @@ public abstract class BaseRunical implements AutoCloseable {
      */
     protected List<String> additionalLocalesForLanguage(String language) {
         return List.of();
+    }
+
+    protected BaseTranslator createChildTranslator(String path) {
+        return new BaseTranslatorNode(this, path);
+    }
+
+    protected BaseTranslator childTranslator(String path) {
+        this.ensureOpen();
+        return this.childTranslators.computeIfAbsent(path, this::createChildTranslator);
     }
 
     private ResolvedTranslation resolveValue(String locale, String key, long accessSequence) {
@@ -958,6 +798,17 @@ public abstract class BaseRunical implements AutoCloseable {
     private static boolean isYamlFile(Path path) {
         String name = path.getFileName().toString().toLowerCase(java.util.Locale.ROOT);
         return name.endsWith(".yml") || name.endsWith(".yaml");
+    }
+    private static String requireChildPath(String segment) {
+        Objects.requireNonNull(segment, "segment");
+        String normalizedSegment = segment.trim();
+        if (normalizedSegment.isBlank()) {
+            throw new IllegalArgumentException("Translator child segment must not be blank.");
+        }
+        if (normalizedSegment.indexOf('.') >= 0) {
+            throw new IllegalArgumentException("Translator child segment must not contain dots.");
+        }
+        return normalizedSegment;
     }
     private static String requireKey(String key) {
         Objects.requireNonNull(key, "key");
