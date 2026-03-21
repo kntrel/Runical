@@ -70,6 +70,46 @@ public final class Runical extends BaseRunical implements Translator, Listener {
         return (Translator) super.getChild(segment);
     }
 
+    /**
+     * Registers a root alias so queries under {@code aliasPath} resolve through
+     * {@code canonicalPath}.
+     *
+     * @param canonicalPath existing query path that should supply the mounted subtree
+     * @param aliasPath new query path that should point at the mounted subtree
+     * @return this root for chaining
+     */
+    @Override
+    public Runical mount(String canonicalPath, String aliasPath) {
+        super.mount(canonicalPath, aliasPath);
+        return this;
+    }
+
+    /**
+     * Registers a root alias that exposes the mounted translator at the given alias path.
+     *
+     * @param toMount translator whose subtree should be mounted
+     * @param aliasPath new query path that should point at the mounted subtree
+     * @return this root for chaining
+     */
+    public Runical mount(Translator toMount, String aliasPath) {
+        super.mount(toMount, aliasPath);
+        return this;
+    }
+
+    /**
+     * Registers a root alias by mounting {@code toMount} beneath {@code child} at
+     * {@code relativePath}.
+     *
+     * @param child base translator whose visible path should receive the alias
+     * @param toMount translator whose subtree should be mounted
+     * @param relativePath relative path beneath {@code child} where the alias should appear
+     * @return this root for chaining
+     */
+    public Runical mount(Translator child, Translator toMount, String relativePath) {
+        super.mount(child, toMount, relativePath);
+        return this;
+    }
+
     /** {@inheritDoc} */
     @Override
     public String translateOrDefault(Player player, String key, String defaultValue, Placeholder... args) {

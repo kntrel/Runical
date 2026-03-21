@@ -190,7 +190,7 @@ class BaseRunicalTest {
     }
 
     @Test
-    void composesMountedCanonicalTranslatorsIntoSingleView() throws Exception {
+    void mountsAliasesAtRootAndResolvesThroughChildTranslators() throws Exception {
         write("en-us.yml", """
                 totem:
                   deeds:
@@ -203,62 +203,51 @@ class BaseRunicalTest {
                 """);
 
         TestRunical runical = new TestRunical(this.tempDir, RunicalOptions.builder().defaultLocale("en-us").build());
-        BaseTranslator hierarchy = runical.getChild("hierarchy");
-        BaseTranslator deedsTranslator = Translators.compose(runical.getChild("totem").getChild("deeds"))
-                .mount("hierarchy", hierarchy)
-                .build();
+        runical.mount("hierarchy", "totem.deeds.hierarchy");
+        BaseTranslator deedsTranslator = runical.getChild("totem").getChild("deeds");
+        BaseTranslator hierarchyAlias = deedsTranslator.getChild("hierarchy");
 
         assertEquals("totem.deeds", deedsTranslator.getPath());
         assertEquals("Deeds prologue", deedsTranslator.translate("en-us", "prologue"));
         assertEquals("Admins", deedsTranslator.translate("en-us", "hierarchy.1.1.name"));
         assertEquals("Everything", deedsTranslator.translate("en-us", "hierarchy.1.1.description"));
-        assertSame(hierarchy, deedsTranslator.getChild("hierarchy"));
-        assertEquals("hierarchy", deedsTranslator.getChild("hierarchy").getPath());
+        assertEquals("Admins", runical.translate("en-us", "totem.deeds.hierarchy.1.1.name"));
+        assertEquals("totem.deeds.hierarchy", hierarchyAlias.getPath());
 
         ResolvedTranslation localUnresolved = deedsTranslator.resolve("en-us", "missing.key");
         assertEquals("totem.deeds.missing.key", localUnresolved.key());
 
         ResolvedTranslation mountedUnresolved = deedsTranslator.resolve("en-us", "hierarchy.missing.key");
-        assertEquals("hierarchy.missing.key", mountedUnresolved.key());
+        assertEquals("totem.deeds.hierarchy.missing.key", mountedUnresolved.key());
     }
 
     @Test
-    void createsGhostNodesForIntermediateMountedPrefixes() throws Exception {
+    void mountsAliasesThroughTranslatorOverloads() throws Exception {
         write("en-us.yml", """
                 totem:
                   deeds:
-                    hierarchy:
-                      local: "Local hierarchy"
+                    prologue: "Deeds prologue"
                 hierarchy:
                   roles:
                     admin:
                       name: "Admins"
-                  foo:
-                    bar:
-                      title: "Bar title"
                 """);
 
         TestRunical runical = new TestRunical(this.tempDir, RunicalOptions.builder().defaultLocale("en-us").build());
-        BaseTranslator deedsTranslator = Translators.compose(runical.getChild("totem").getChild("deeds"))
-                .mount("hierarchy.roles", runical.getChild("hierarchy").getChild("roles"))
-                .mount("hierarchy.foo.bar", runical.getChild("hierarchy").getChild("foo").getChild("bar"))
-                .build();
+        BaseTranslator deeds = runical.getChild("totem").getChild("deeds");
+        BaseTranslator hierarchy = runical.getChild("hierarchy");
 
-        BaseTranslator hierarchy = deedsTranslator.getChild("hierarchy");
-        BaseTranslator foo = hierarchy.getChild("foo");
+        runical.mount(hierarchy, "totem.deeds.hierarchy");
+        runical.mount(deeds, hierarchy, "admin_hierarchy");
 
-        assertNull(hierarchy.getPath());
-        assertEquals("Local hierarchy", hierarchy.translate("en-us", "local"));
-        assertEquals("Admins", hierarchy.translate("en-us", "roles.admin.name"));
-        assertEquals("hierarchy.roles", hierarchy.getChild("roles").getPath());
-
-        assertNull(foo.getPath());
-        assertEquals("Bar title", foo.translate("en-us", "bar.title"));
-        assertEquals("hierarchy.foo.bar", foo.getChild("bar").getPath());
+        assertEquals("Admins", runical.translate("en-us", "totem.deeds.hierarchy.roles.admin.name"));
+        assertEquals("Admins", deeds.translate("en-us", "admin_hierarchy.roles.admin.name"));
+        assertEquals("totem.deeds.admin_hierarchy", deeds.getChild("admin_hierarchy").getPath());
+        assertEquals("totem.deeds.hierarchy", deeds.getChild("hierarchy").getPath());
     }
 
     @Test
-    void validatesMountedTranslatorCompositionRules() throws Exception {
+    void validatesRootMountRules() throws Exception {
         Path primaryDirectory = Files.createDirectories(this.tempDir.resolve("primary"));
         Path secondaryDirectory = Files.createDirectories(this.tempDir.resolve("secondary"));
 
@@ -280,21 +269,19 @@ class BaseRunicalTest {
 
         TestRunical primaryRunical = new TestRunical(primaryDirectory, RunicalOptions.builder().defaultLocale("en-us").build());
         TestRunical secondaryRunical = new TestRunical(secondaryDirectory, RunicalOptions.builder().defaultLocale("en-us").build());
-        BaseTranslator primary = primaryRunical.getChild("totem").getChild("deeds");
 
-        assertSame(primary, Translators.compose(primary).build());
-        assertThrows(IllegalArgumentException.class, () -> Translators.compose(primary).mount("hierarchy", primaryRunical));
-        assertThrows(IllegalArgumentException.class, () -> Translators.compose(primary).mount("hierarchy", primaryRunical.getChild("totem")));
+        assertThrows(IllegalArgumentException.class, () -> primaryRunical.mount("hierarchy", "hierarchy"));
         assertThrows(
                 IllegalArgumentException.class,
-                () -> Translators.compose(primary)
-                        .mount("hierarchy.roles", primaryRunical.getChild("hierarchy").getChild("roles"))
-                        .mount("hierarchy", primaryRunical.getChild("hierarchy"))
+                () -> primaryRunical
+                        .mount("hierarchy", "totem.deeds.hierarchy")
+                        .mount("hierarchy.roles", "totem.deeds.hierarchy.roles")
         );
         assertThrows(
                 IllegalArgumentException.class,
-                () -> Translators.compose(primary).mount("hierarchy", secondaryRunical.getChild("hierarchy"))
+                () -> primaryRunical.mount(primaryRunical.getChild("totem"), secondaryRunical.getChild("hierarchy"), "hierarchy")
         );
+        assertThrows(IllegalArgumentException.class, () -> primaryRunical.mount(primaryRunical, "totem.root_alias"));
     }
 
     @Test

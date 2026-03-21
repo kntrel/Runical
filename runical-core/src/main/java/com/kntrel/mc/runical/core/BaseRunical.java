@@ -77,6 +77,7 @@ public abstract class BaseRunical implements BaseTranslator, AutoCloseable {
     private final ConcurrentHashMap<String, CompletableFuture<LocaleBundle>> inFlightLoads;
     private final ConcurrentHashMap<String, AtomicInteger> retainedLocales;
     private final ConcurrentHashMap<String, BaseTranslator> childTranslators;
+    private final AtomicReference<MountedAliases> mountedAliases;
 
 
     //CONSTRUCTOR
@@ -104,6 +105,7 @@ public abstract class BaseRunical implements BaseTranslator, AutoCloseable {
         this.inFlightLoads = new ConcurrentHashMap<>();
         this.retainedLocales = new ConcurrentHashMap<>();
         this.childTranslators = new ConcurrentHashMap<>();
+        this.mountedAliases = new AtomicReference<>(MountedAliases.empty());
 
         Executor configuredExecutor = this.options.asyncExecutor();
         if (configuredExecutor != null) {
@@ -134,6 +136,84 @@ public abstract class BaseRunical implements BaseTranslator, AutoCloseable {
         return this.childTranslator(requireChildPath(segment));
     }
 
+    /**
+     * Registers a root alias so queries under {@code aliasPath} resolve through
+     * {@code canonicalPath}.
+     *
+     * <p>Alias paths become real query paths on this root. Child translators created from an alias
+     * path therefore round-trip honestly through {@link #getRoot()} and {@link BaseTranslator#getPath()}.
+     *
+     * @param canonicalPath existing query path that should supply the mounted subtree
+     * @param aliasPath new query path that should point at the canonical subtree
+     * @return this root for chaining
+     * @throws NullPointerException if either path is {@code null}
+     * @throws IllegalArgumentException if either path is blank, if {@code aliasPath} overlaps an
+     *                                  existing alias, or if the alias would resolve to itself
+     * @throws IllegalStateException if this root has been closed
+     */
+    public BaseRunical mount(String canonicalPath, String aliasPath) {
+        this.ensureOpen();
+        String normalizedCanonicalPath = normalizeTranslatorPath(canonicalPath, "canonicalPath");
+        String normalizedAliasPath = normalizeTranslatorPath(aliasPath, "aliasPath");
+
+        this.mountedAliases.updateAndGet(aliases -> aliases.withMount(normalizedCanonicalPath, normalizedAliasPath));
+        return this;
+    }
+
+    /**
+     * Registers a root alias that exposes the mounted translator at the given alias path.
+     *
+     * @param toMount canonical translator whose subtree should be mounted
+     * @param aliasPath new query path that should point at the mounted subtree
+     * @return this root for chaining
+     * @throws NullPointerException if {@code toMount} or {@code aliasPath} is {@code null}
+     * @throws IllegalArgumentException if the translator belongs to a different root, does not
+     *                                  expose a non-root path, or the alias path is invalid
+     * @throws IllegalStateException if this root has been closed
+     */
+    public BaseRunical mount(BaseTranslator toMount, String aliasPath) {
+        BaseTranslator mountedTranslator = Objects.requireNonNull(toMount, "toMount");
+        if (mountedTranslator.getRoot() != this) {
+            throw new IllegalArgumentException("Mounted translators must share the same root.");
+        }
+        return this.mount(requireMountedTranslatorPath(mountedTranslator, "toMount"), aliasPath);
+    }
+
+    /**
+     * Registers a root alias by mounting {@code toMount} beneath {@code child} at
+     * {@code relativePath}.
+     *
+     * <p>For example, mounting {@code hierarchy} beneath {@code totem.deeds} at {@code hierarchy}
+     * creates the alias {@code totem.deeds.hierarchy -> hierarchy}.
+     *
+     * @param child base translator whose visible path should receive the alias
+     * @param toMount translator whose subtree should be mounted
+     * @param relativePath relative path beneath {@code child} where the alias should appear
+     * @return this root for chaining
+     * @throws NullPointerException if any argument is {@code null}
+     * @throws IllegalArgumentException if either translator belongs to a different root, if
+     *                                  {@code child} does not expose a path, if {@code toMount}
+     *                                  does not expose a non-root path, or if {@code relativePath}
+     *                                  is invalid
+     * @throws IllegalStateException if this root has been closed
+     */
+    public BaseRunical mount(BaseTranslator child, BaseTranslator toMount, String relativePath) {
+        BaseTranslator baseChild = Objects.requireNonNull(child, "child");
+        BaseTranslator mountedTranslator = Objects.requireNonNull(toMount, "toMount");
+        if (baseChild.getRoot() != this) {
+            throw new IllegalArgumentException("Child translator must share the same root.");
+        }
+        if (mountedTranslator.getRoot() != this) {
+            throw new IllegalArgumentException("Mounted translator must share the same root.");
+        }
+
+        String basePath = requireVisibleTranslatorPath(baseChild, "child");
+        String normalizedRelativePath = normalizeTranslatorPath(relativePath, "relativePath");
+        String aliasPath = basePath.isEmpty() ? normalizedRelativePath : basePath + "." + normalizedRelativePath;
+
+        return this.mount(requireMountedTranslatorPath(mountedTranslator, "toMount"), aliasPath);
+    }
+
     /** {@inheritDoc} */
     @Override
     public final String translateOrDefault(String locale, String key, String defaultValue, Placeholder... args) {
@@ -158,19 +238,20 @@ public abstract class BaseRunical implements BaseTranslator, AutoCloseable {
         this.ensureOpen();
         String normalizedLocale = this.normalizeLocale(locale);
         String normalizedKey = requireKey(key);
+        String lookupKey = this.mountedAliases.get().rewrite(normalizedKey);
         long accessSequence = this.querySequence.incrementAndGet();
 
-        ResolvedTranslation resolved = this.resolveValue(normalizedLocale, normalizedKey, accessSequence);
+        ResolvedTranslation resolved = this.resolveValue(normalizedLocale, lookupKey, accessSequence);
         if (!resolved.found()) {
             cleanupIfNeeded(accessSequence);
-            return resolved;
+            return adaptResolvedKey(resolved, normalizedKey);
         }
 
         String rendered = renderMessage(resolved.value(), args);
         cleanupIfNeeded(accessSequence);
         return new ResolvedTranslation(
                 resolved.requestedLocale(),
-                resolved.key(),
+                normalizedKey,
                 resolved.resolvedLocale(),
                 rendered,
                 resolved.source()
@@ -345,6 +426,7 @@ public abstract class BaseRunical implements BaseTranslator, AutoCloseable {
         this.loadedLocales.clear();
         this.inFlightLoads.clear();
         this.retainedLocales.clear();
+        this.mountedAliases.set(MountedAliases.empty());
 
         if (this.shutdownAsyncExecutorOnClose && this.asyncExecutor instanceof ExecutorService executorService) {
             executorService.shutdown();
@@ -483,6 +565,19 @@ public abstract class BaseRunical implements BaseTranslator, AutoCloseable {
     protected BaseTranslator childTranslator(String path) {
         this.ensureOpen();
         return this.childTranslators.computeIfAbsent(path, this::createChildTranslator);
+    }
+
+    private static ResolvedTranslation adaptResolvedKey(ResolvedTranslation resolved, String key) {
+        if (resolved.key().equals(key)) {
+            return resolved;
+        }
+        return new ResolvedTranslation(
+                resolved.requestedLocale(),
+                key,
+                resolved.resolvedLocale(),
+                resolved.value(),
+                resolved.source()
+        );
     }
 
     private ResolvedTranslation resolveValue(String locale, String key, long accessSequence) {
@@ -806,14 +901,7 @@ public abstract class BaseRunical implements BaseTranslator, AutoCloseable {
     }
     private static String requireChildPath(String segment) {
         Objects.requireNonNull(segment, "segment");
-        String normalizedSegment = segment.trim();
-        if (normalizedSegment.isBlank()) {
-            throw new IllegalArgumentException("Translator child segment must not be blank.");
-        }
-        if (normalizedSegment.indexOf('.') >= 0) {
-            throw new IllegalArgumentException("Translator child segment must not contain dots.");
-        }
-        return normalizedSegment;
+        return requirePathSegment(segment, "Translator child segment");
     }
     private static String requireKey(String key) {
         Objects.requireNonNull(key, "key");
@@ -821,6 +909,47 @@ public abstract class BaseRunical implements BaseTranslator, AutoCloseable {
             throw new IllegalArgumentException("Translation key must not be blank.");
         }
         return key;
+    }
+    private static String requirePathSegment(String segment, String label) {
+        String normalizedSegment = segment.trim();
+        if (normalizedSegment.isBlank()) {
+            throw new IllegalArgumentException(label + " must not be blank.");
+        }
+        if (normalizedSegment.indexOf('.') >= 0) {
+            throw new IllegalArgumentException(label + " must not contain dots.");
+        }
+        return normalizedSegment;
+    }
+    private static String normalizeTranslatorPath(String path, String argumentName) {
+        Objects.requireNonNull(path, argumentName);
+        String normalizedPath = path.trim();
+        if (normalizedPath.isBlank()) {
+            throw new IllegalArgumentException(argumentName + " must not be blank.");
+        }
+
+        String[] rawSegments = normalizedPath.split("\\.", -1);
+        String[] normalizedSegments = new String[rawSegments.length];
+        for (int index = 0; index < rawSegments.length; index++) {
+            normalizedSegments[index] = requirePathSegment(rawSegments[index], "Translator path segment");
+        }
+        return String.join(".", normalizedSegments);
+    }
+    static boolean overlaps(String left, String right) {
+        return left.equals(right) || left.startsWith(right + ".") || right.startsWith(left + ".");
+    }
+    private static String requireMountedTranslatorPath(BaseTranslator translator, String argumentName) {
+        String path = Objects.requireNonNull(translator, argumentName).getPath();
+        if (path == null || path.isBlank()) {
+            throw new IllegalArgumentException(argumentName + " must expose a non-root path.");
+        }
+        return path;
+    }
+    private static String requireVisibleTranslatorPath(BaseTranslator translator, String argumentName) {
+        String path = Objects.requireNonNull(translator, argumentName).getPath();
+        if (path == null) {
+            throw new IllegalArgumentException(argumentName + " must expose a queryable path.");
+        }
+        return path;
     }
     private void ensureOpen() {
         if (this.closed.get()) {
@@ -832,4 +961,5 @@ public abstract class BaseRunical implements BaseTranslator, AutoCloseable {
             throw new IllegalStateException("Runical is closed.");
         }
     }
+
 }

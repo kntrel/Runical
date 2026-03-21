@@ -10,7 +10,7 @@ synchronous and asynchronous lookups.
 - Locale fallback from exact locale to general language, sibling regional locales, and a default locale
 - Named placeholder rendering with brace escaping
 - Path-scoped child translators through `getChild(...)`
-- Mounted translator composition through `Translators.compose(...).mount(...).build()`
+- Root-level alias mounts through `BaseRunical.mount(...)`
 - Locale-aware list formatting for `and` and `or` styles
 - Lazy loading with cache eviction controls
 - Protected retention hooks for platform adapters that track active user locales
@@ -192,37 +192,46 @@ String childValue = regionTranslator.translate("en-us", "naming.default");
 Those two lookups are equivalent. Child translators do not have their own cache or fallback logic;
 they only prepend their path and delegate back to the root resolver.
 
-## Composed translators
+## Root alias mounts
 
 Sometimes a domain object wants one translator contract even though some of its keys live in
-another canonical subtree. `Translators` lets you keep that single-translator dependency without
-nesting unrelated locale data:
+another subtree. Instead of creating virtual composite translators, Runical can register root-level
+alias paths that behave like symbolic links:
 
 ```java
-BaseTranslator deedsTranslator = Translators.compose(runical.getChild("totem").getChild("deeds"))
-        .mount("hierarchy", runical.getChild("hierarchy"))
-        .build();
+runical.mount("hierarchy", "totem.deeds.hierarchy");
 ```
 
-With that composition:
+After that registration:
 
-- `deedsTranslator.translate("en-us", "prologue")` still resolves from `totem.deeds.prologue`
-- `deedsTranslator.translate("en-us", "hierarchy.1.1.name")` resolves from `hierarchy.1.1.name`
-- `deedsTranslator.getPath()` still reports the primary canonical path, such as `totem.deeds`
-- `deedsTranslator.getChild("hierarchy")` returns the mounted canonical translator directly
-- an exact mount prefix owns that subtree, so primary keys under the same prefix are intentionally shadowed
+- `runical.translate("en-us", "totem.deeds.hierarchy.1.1.name")` resolves through `hierarchy.1.1.name`
+- `runical.getChild("totem").getChild("deeds").getChild("hierarchy").getPath()` returns `totem.deeds.hierarchy`
+- querying that path from the root works because the alias is registered on the root itself
 
-When a mount is deeper, such as `hierarchy.roles`, intermediate children like
-`deedsTranslator.getChild("hierarchy")` are virtual bridge nodes. Their keys still resolve
-correctly, but `getPath()` returns `null` because they do not correspond to a canonical queryable
-path.
+There are also translator-based overloads:
 
-Composition guardrails:
+```java
+runical.mount(runical.getChild("hierarchy"), "totem.deeds.hierarchy");
 
-- all mounted translators must share the same underlying `BaseRunical` root as the primary translator
-- mount paths must match the mounted translator's canonical path exactly
-- overlapping mounts such as `hierarchy` and `hierarchy.roles` are rejected; use a nested
-  composition if you need that shape
+runical.mount(
+        runical.getChild("totem").getChild("deeds"),
+        runical.getChild("hierarchy"),
+        "hierarchy"
+);
+```
+
+Alias semantics:
+
+- alias paths are real query paths on the root, not just local translator views
+- child translators created from alias paths stay honest: `getPath()` returns the alias path and that path works from the root
+- `ResolvedTranslation.key()` and `orKey()` stay in the originally queried keyspace rather than switching to the mounted target path
+- an exact alias prefix owns that subtree, so real translations under the same alias path are intentionally shadowed
+
+Alias guardrails:
+
+- mounted translators must share the same underlying `BaseRunical` root
+- mounted translators used in translator overloads must expose a non-root path
+- overlapping alias paths such as `hierarchy` and `hierarchy.roles` are rejected
 
 ## List formatting
 

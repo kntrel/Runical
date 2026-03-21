@@ -21,10 +21,10 @@ class TranslatorApiTest {
     }
 
     @Test
-    void exposesBukkitTranslatorCompositionApi() throws Exception {
-        assertEquals(Translators.Builder.class, Translators.class.getMethod("compose", Translator.class).getReturnType());
-        assertEquals(Translators.Builder.class, Translators.Builder.class.getMethod("mount", String.class, Translator.class).getReturnType());
-        assertEquals(Translator.class, Translators.Builder.class.getMethod("build").getReturnType());
+    void exposesBukkitRootMountApi() throws Exception {
+        assertEquals(Runical.class, Runical.class.getMethod("mount", String.class, String.class).getReturnType());
+        assertEquals(Runical.class, Runical.class.getMethod("mount", Translator.class, String.class).getReturnType());
+        assertEquals(Runical.class, Runical.class.getMethod("mount", Translator.class, Translator.class, String.class).getReturnType());
     }
 
     @Test

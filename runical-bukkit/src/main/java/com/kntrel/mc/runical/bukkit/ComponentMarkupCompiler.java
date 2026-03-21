@@ -3,18 +3,16 @@ package com.kntrel.mc.runical.bukkit;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.TextComponent;
-
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Locale;
 import java.util.Objects;
 
-final class ComponentMarkupCompiler {
+public final class ComponentMarkupCompiler {
 
-    private ComponentMarkupCompiler() {
-    }
+    private ComponentMarkupCompiler() {}
 
-    static BaseComponent compile(String input) {
+    public static BaseComponent compile(String input) {
         Objects.requireNonNull(input, "input");
 
         TextComponent root = new TextComponent("");
