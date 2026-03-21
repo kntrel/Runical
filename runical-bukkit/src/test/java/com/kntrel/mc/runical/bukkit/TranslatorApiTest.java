@@ -14,4 +14,11 @@ class TranslatorApiTest {
         assertEquals(Translator.class, Translator.class.getMethod("getChild", String.class).getReturnType());
         assertEquals(Translator.class, Runical.class.getMethod("getChild", String.class).getReturnType());
     }
+
+    @Test
+    void exposesBukkitTranslatorCompositionApi() throws Exception {
+        assertEquals(Translators.Builder.class, Translators.class.getMethod("compose", Translator.class).getReturnType());
+        assertEquals(Translators.Builder.class, Translators.Builder.class.getMethod("mount", String.class, Translator.class).getReturnType());
+        assertEquals(Translator.class, Translators.Builder.class.getMethod("build").getReturnType());
+    }
 }

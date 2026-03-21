@@ -6,7 +6,9 @@
  * {@link com.kntrel.mc.runical.core.BaseTranslator}, resolves translations from a directory of
  * locale YAML files, and exposes synchronous and asynchronous lookup methods. Child translators
  * created through {@link com.kntrel.mc.runical.core.BaseTranslator#getChild(String)} qualify keys
- * relative to a fixed path while delegating resolution back to the root resolver.
+ * relative to a fixed path while delegating resolution back to the root resolver. Additional
+ * canonical subtrees can be mounted into a single translator view through
+ * {@link com.kntrel.mc.runical.core.Translators}.
  * {@link com.kntrel.mc.runical.core.RunicalOptions} configures caching and async behavior, while
  * {@link com.kntrel.mc.runical.core.ResolvedTranslation} and
  * {@link com.kntrel.mc.runical.core.Placeholder} model lookup results and placeholder inputs.

@@ -10,6 +10,7 @@ synchronous and asynchronous lookups.
 - Locale fallback from exact locale to general language, sibling regional locales, and a default locale
 - Named placeholder rendering with brace escaping
 - Path-scoped child translators through `getChild(...)`
+- Mounted translator composition through `Translators.compose(...).mount(...).build()`
 - Locale-aware list formatting for `and` and `or` styles
 - Lazy loading with cache eviction controls
 - Protected retention hooks for platform adapters that track active user locales
@@ -190,6 +191,38 @@ String childValue = regionTranslator.translate("en-us", "naming.default");
 
 Those two lookups are equivalent. Child translators do not have their own cache or fallback logic;
 they only prepend their path and delegate back to the root resolver.
+
+## Composed translators
+
+Sometimes a domain object wants one translator contract even though some of its keys live in
+another canonical subtree. `Translators` lets you keep that single-translator dependency without
+nesting unrelated locale data:
+
+```java
+BaseTranslator deedsTranslator = Translators.compose(runical.getChild("totem").getChild("deeds"))
+        .mount("hierarchy", runical.getChild("hierarchy"))
+        .build();
+```
+
+With that composition:
+
+- `deedsTranslator.translate("en-us", "prologue")` still resolves from `totem.deeds.prologue`
+- `deedsTranslator.translate("en-us", "hierarchy.1.1.name")` resolves from `hierarchy.1.1.name`
+- `deedsTranslator.getPath()` still reports the primary canonical path, such as `totem.deeds`
+- `deedsTranslator.getChild("hierarchy")` returns the mounted canonical translator directly
+- an exact mount prefix owns that subtree, so primary keys under the same prefix are intentionally shadowed
+
+When a mount is deeper, such as `hierarchy.roles`, intermediate children like
+`deedsTranslator.getChild("hierarchy")` are virtual bridge nodes. Their keys still resolve
+correctly, but `getPath()` returns `null` because they do not correspond to a canonical queryable
+path.
+
+Composition guardrails:
+
+- all mounted translators must share the same underlying `BaseRunical` root as the primary translator
+- mount paths must match the mounted translator's canonical path exactly
+- overlapping mounts such as `hierarchy` and `hierarchy.roles` are rejected; use a nested
+  composition if you need that shape
 
 ## List formatting
 

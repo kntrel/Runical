@@ -66,7 +66,6 @@ public final class Runical extends BaseRunical implements Translator, Listener {
     }
 
     /** {@inheritDoc} */
-    @Override
     public Translator getChild(String segment) {
         return (Translator) super.getChild(segment);
     }

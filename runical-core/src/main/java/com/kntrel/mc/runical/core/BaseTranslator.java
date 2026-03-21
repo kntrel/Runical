@@ -13,9 +13,12 @@ public interface BaseTranslator {
     /**
      * Returns the translator path prefix.
      *
-     * <p>The root translator returns an empty string.
+     * <p>The root translator returns an empty string. Composite translators may also expose
+     * virtual intermediary nodes whose keys still resolve correctly but that do not correspond to
+     * a canonical translator path; those nodes return {@code null}.
      *
-     * @return the dot-separated path prefix, or an empty string for the root translator
+     * @return the canonical dot-separated path prefix, an empty string for the root translator, or
+     *         {@code null} for a virtual intermediary node
      */
     String getPath();
 
@@ -25,7 +28,9 @@ public interface BaseTranslator {
      * Returns a child translator rooted at the given path segment.
      *
      * <p>Segments are trimmed, must not be blank, and must not contain dots. Child translators
-     * resolve keys relative to the returned path.
+     * resolve keys relative to the returned translator scope. Composite translators may return a
+     * virtual intermediary child whose {@link #getPath()} is {@code null} when that child exists
+     * only to bridge toward a mounted canonical translator.
      *
      * @param segment direct child path segment
      * @return a child translator rooted under this translator
@@ -42,7 +47,9 @@ public interface BaseTranslator {
      * hyphens, and lower-casing the value. Placeholder values are rendered only when a translation
      * is found. Null placeholder entries are ignored, placeholder values are converted with
      * {@link String#valueOf(Object)}, missing placeholders remain unchanged, and literal braces can
-     * be escaped with doubled braces such as <code>{{</code> and <code>}}</code>.
+     * be escaped with doubled braces such as <code>{{</code> and <code>}}</code>. Keys are
+     * resolved relative to the translator scope, which normally matches {@link #getPath()} but may
+     * be virtual for mounted composite intermediary nodes.
      *
      * @param locale requested locale
      * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this

@@ -23,6 +23,10 @@ public interface Translator extends BaseTranslator {
      * Returns a child translator rooted at the given path segment while preserving the Bukkit
      * player-aware API.
      *
+     * <p>Mounted composite translators may return a virtual intermediary child whose
+     * {@link #getPath()} is {@code null} when that child exists only to bridge toward a mounted
+     * canonical translator.
+     *
      * @param segment direct child path segment
      * @return a child translator rooted under this translator
      * @throws NullPointerException if {@code segment} is {@code null}
