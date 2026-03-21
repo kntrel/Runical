@@ -4,6 +4,7 @@ import com.kntrel.mc.runical.core.BaseTranslator;
 import com.kntrel.mc.runical.core.ListStyle;
 import com.kntrel.mc.runical.core.Placeholder;
 import com.kntrel.mc.runical.core.ResolvedTranslation;
+import net.md_5.bungee.api.chat.BaseComponent;
 import org.bukkit.entity.Player;
 
 import java.util.Collection;
@@ -34,6 +35,115 @@ public interface Translator extends BaseTranslator {
      */
     @Override
     Translator getChild(String segment);
+
+    /**
+     * Resolves a translation and compiles the rendered output into a rich-text component tree.
+     *
+     * <p>The compiled markup supports {@code <b>}, {@code <i>}, {@code <s>}, {@code <u>},
+     * {@code <o>}, color tags such as {@code <c:red>} or {@code <c:#RRGGBB>}, and the shorthand
+     * closing tag {@code </>}.
+     *
+     * @param locale requested locale
+     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
+     *            translator is a child node
+     * @param args placeholders used to render the resolved translation
+     * @return the compiled rich-text component, or the key as plain text when unresolved
+     */
+    default BaseComponent translateAsComponent(String locale, String key, Placeholder... args) {
+        return compileResolvedComponent(this.resolve(locale, key, args));
+    }
+
+    /**
+     * Resolves a translation without placeholders and compiles it into a rich-text component tree.
+     *
+     * @param locale requested locale
+     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
+     *            translator is a child node
+     * @return the compiled rich-text component, or the key as plain text when unresolved
+     */
+    default BaseComponent translateAsComponent(String locale, String key) {
+        return this.translateAsComponent(locale, key, new Placeholder[0]);
+    }
+
+    /**
+     * Asynchronously resolves a translation and compiles it into a rich-text component tree.
+     *
+     * @param locale requested locale
+     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
+     *            translator is a child node
+     * @param args placeholders used to render the resolved translation
+     * @return a future completing with the compiled rich-text component
+     */
+    default CompletableFuture<BaseComponent> translateAsComponentAsync(String locale, String key, Placeholder... args) {
+        return this.resolveAsync(locale, key, args).thenApply(Translator::compileResolvedComponent);
+    }
+
+    /**
+     * Asynchronously resolves a translation without placeholders and compiles it into a rich-text
+     * component tree.
+     *
+     * @param locale requested locale
+     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
+     *            translator is a child node
+     * @return a future completing with the compiled rich-text component
+     */
+    default CompletableFuture<BaseComponent> translateAsComponentAsync(String locale, String key) {
+        return this.translateAsComponentAsync(locale, key, new Placeholder[0]);
+    }
+
+    /**
+     * Resolves a translation for the player's locale and compiles it into a rich-text component
+     * tree.
+     *
+     * @param player player whose locale should be used
+     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
+     *            translator is a child node
+     * @param args placeholders used to render the resolved translation
+     * @return the compiled rich-text component, or the key as plain text when unresolved
+     */
+    default BaseComponent translateAsComponent(Player player, String key, Placeholder... args) {
+        return compileResolvedComponent(this.resolve(player, key, args));
+    }
+
+    /**
+     * Resolves a translation for the player's locale without placeholders and compiles it into a
+     * rich-text component tree.
+     *
+     * @param player player whose locale should be used
+     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
+     *            translator is a child node
+     * @return the compiled rich-text component, or the key as plain text when unresolved
+     */
+    default BaseComponent translateAsComponent(Player player, String key) {
+        return this.translateAsComponent(player, key, new Placeholder[0]);
+    }
+
+    /**
+     * Asynchronously resolves a translation for the player's locale and compiles it into a
+     * rich-text component tree.
+     *
+     * @param player player whose locale should be used
+     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
+     *            translator is a child node
+     * @param args placeholders used to render the resolved translation
+     * @return a future completing with the compiled rich-text component
+     */
+    default CompletableFuture<BaseComponent> translateAsComponentAsync(Player player, String key, Placeholder... args) {
+        return this.resolveAsync(player, key, args).thenApply(Translator::compileResolvedComponent);
+    }
+
+    /**
+     * Asynchronously resolves a translation for the player's locale without placeholders and
+     * compiles it into a rich-text component tree.
+     *
+     * @param player player whose locale should be used
+     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
+     *            translator is a child node
+     * @return a future completing with the compiled rich-text component
+     */
+    default CompletableFuture<BaseComponent> translateAsComponentAsync(Player player, String key) {
+        return this.translateAsComponentAsync(player, key, new Placeholder[0]);
+    }
 
     /**
      * Resolves a translation for the player's locale and returns either the rendered translation or
@@ -343,5 +453,9 @@ public interface Translator extends BaseTranslator {
      */
     default CompletableFuture<Boolean> sendTranslationOrDefault(Player player, String key, String defaultValue) {
         return this.sendTranslationOrDefault(player, key, defaultValue, new Placeholder[0]);
+    }
+
+    private static BaseComponent compileResolvedComponent(ResolvedTranslation translation) {
+        return ComponentMarkupCompiler.compile(translation.orKey());
     }
 }

@@ -1,7 +1,12 @@
 package com.kntrel.mc.runical.bukkit;
 
 import com.kntrel.mc.runical.core.BaseTranslator;
+import com.kntrel.mc.runical.core.Placeholder;
+import net.md_5.bungee.api.chat.BaseComponent;
+import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
+
+import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -20,5 +25,34 @@ class TranslatorApiTest {
         assertEquals(Translators.Builder.class, Translators.class.getMethod("compose", Translator.class).getReturnType());
         assertEquals(Translators.Builder.class, Translators.Builder.class.getMethod("mount", String.class, Translator.class).getReturnType());
         assertEquals(Translator.class, Translators.Builder.class.getMethod("build").getReturnType());
+    }
+
+    @Test
+    void exposesComponentTranslationOverloadsOnPublicApi() throws Exception {
+        assertEquals(BaseComponent.class, Translator.class.getMethod(
+                "translateAsComponent", String.class, String.class, Placeholder[].class
+        ).getReturnType());
+        assertEquals(BaseComponent.class, Translator.class.getMethod(
+                "translateAsComponent", String.class, String.class
+        ).getReturnType());
+        assertEquals(CompletableFuture.class, Translator.class.getMethod(
+                "translateAsComponentAsync", String.class, String.class, Placeholder[].class
+        ).getReturnType());
+        assertEquals(CompletableFuture.class, Translator.class.getMethod(
+                "translateAsComponentAsync", String.class, String.class
+        ).getReturnType());
+
+        assertEquals(BaseComponent.class, Translator.class.getMethod(
+                "translateAsComponent", Player.class, String.class, Placeholder[].class
+        ).getReturnType());
+        assertEquals(BaseComponent.class, Translator.class.getMethod(
+                "translateAsComponent", Player.class, String.class
+        ).getReturnType());
+        assertEquals(CompletableFuture.class, Translator.class.getMethod(
+                "translateAsComponentAsync", Player.class, String.class, Placeholder[].class
+        ).getReturnType());
+        assertEquals(CompletableFuture.class, Translator.class.getMethod(
+                "translateAsComponentAsync", Player.class, String.class
+        ).getReturnType());
     }
 }
