@@ -141,6 +141,7 @@ Rendering rules:
 
 - Placeholder names are matched exactly.
 - Placeholder values are converted with `String.valueOf(...)`.
+- `BundledPlaceholder` values expand into dotted placeholder tokens such as `{region.name}`.
 - If a placeholder is missing, the token stays in the output unchanged.
 - `null` entries in the placeholder argument array are ignored.
 - Use `{{` for a literal `{` and `}}` for a literal `}`.
@@ -156,6 +157,25 @@ With `Placeholder.of("player", "Alex")`, the result is:
 
 ```text
 Hello Alex, {literal} {missing}
+```
+
+Bundled placeholders let you group related values under one namespace:
+
+```java
+BundledPlaceholder region = BundledPlaceholder.of("name", "Spawn")
+        .append("id", 12)
+        .append("color", "Blue ");
+
+String translated = runical.translate(
+        "en-us",
+        "region.message",
+        Placeholder.of("region", region)
+);
+```
+
+```yaml
+region:
+  message: "The name of the region {region.id} is {region.color}{region.name}"
 ```
 
 ## Locale fallback order

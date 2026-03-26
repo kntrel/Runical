@@ -10,7 +10,9 @@
  * root-level query aliases can be registered through
  * {@link com.kntrel.mc.runical.core.BaseRunical#mount(String, String)}.
  * {@link com.kntrel.mc.runical.core.RunicalOptions} configures caching and async behavior, while
- * {@link com.kntrel.mc.runical.core.ResolvedTranslation} and
- * {@link com.kntrel.mc.runical.core.Placeholder} model lookup results and placeholder inputs.
+ * {@link com.kntrel.mc.runical.core.ResolvedTranslation},
+ * {@link com.kntrel.mc.runical.core.Placeholder}, and
+ * {@link com.kntrel.mc.runical.core.BundledPlaceholder} model lookup results and placeholder
+ * inputs.
  */
 package com.kntrel.mc.runical.core;

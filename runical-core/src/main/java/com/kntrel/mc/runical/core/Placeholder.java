@@ -6,7 +6,9 @@ import java.util.Objects;
  * Named placeholder used when rendering a resolved translation.
  *
  * <p>Placeholder names match tokens inside braces such as {@code {player}}. Values are converted
- * to strings with {@link String#valueOf(Object)} during rendering.
+ * to strings with {@link String#valueOf(Object)} during rendering. When the value is a
+ * {@link BundledPlaceholder}, its entries are exposed as dotted tokens such as
+ * {@code {region.name}}.
  *
  * @param name placeholder token name
  * @param value placeholder value, which may be {@code null}

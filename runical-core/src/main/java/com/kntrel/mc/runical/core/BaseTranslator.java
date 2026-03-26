@@ -41,8 +41,9 @@ public interface BaseTranslator {
      * <p>Locale identifiers are normalized by trimming whitespace, converting underscores to
      * hyphens, and lower-casing the value. Placeholder values are rendered only when a translation
      * is found. Null placeholder entries are ignored, placeholder values are converted with
-     * {@link String#valueOf(Object)}, missing placeholders remain unchanged, and literal braces can
-     * be escaped with doubled braces such as <code>{{</code> and <code>}}</code>.
+     * {@link String#valueOf(Object)}, {@link BundledPlaceholder bundled placeholder values} expand
+     * into dotted tokens such as {@code {region.name}}, missing placeholders remain unchanged, and
+     * literal braces can be escaped with doubled braces such as <code>{{</code> and <code>}}</code>.
      *
      * @param locale requested locale
      * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this

@@ -92,6 +92,60 @@ class BaseRunicalTest {
     }
 
     @Test
+    void formatsBundledPlaceholdersIntoDottedTokens() throws Exception {
+        write("en-us.yml", """
+                region:
+                  message: "The name of the region {region.id} is {region.color}{region.name}"
+                """);
+
+        TestRunical runical = new TestRunical(this.tempDir, RunicalOptions.builder().defaultLocale("en-us").build());
+        BundledPlaceholder region = BundledPlaceholder.of("name", "Spawn")
+                .append("id", 12)
+                .append("color", "Blue ");
+
+        String translated = runical.translate(
+                "en-us",
+                "region.message",
+                Placeholder.of("region", region)
+        );
+
+        assertEquals("The name of the region 12 is Blue Spawn", translated);
+    }
+
+    @Test
+    void supportsNestedBundledPlaceholdersAndLaterOverrides() throws Exception {
+        write("en-us.yml", """
+                region:
+                  message: "Owner {region.owner.name} lives in {region.name} ({region.id})"
+                """);
+
+        TestRunical runical = new TestRunical(this.tempDir, RunicalOptions.builder().defaultLocale("en-us").build());
+        BundledPlaceholder region = BundledPlaceholder.of("name", "Spawn")
+                .append("id", 12)
+                .append("owner", BundledPlaceholder.of("name", "Alex"));
+
+        String translated = runical.translate(
+                "en-us",
+                "region.message",
+                Placeholder.of("region", region),
+                Placeholder.of("region.owner.name", "Sam"),
+                Placeholder.of("region.id", 99)
+        );
+
+        assertEquals("Owner Sam lives in Spawn (99)", translated);
+    }
+
+    @Test
+    void validatesBundledPlaceholderSegmentNames() {
+        assertThrows(IllegalArgumentException.class, () -> BundledPlaceholder.of(" ", "value"));
+        assertThrows(IllegalArgumentException.class, () -> BundledPlaceholder.of("region.name", "value"));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> BundledPlaceholder.of("region", "value").append("owner.name", "Alex")
+        );
+    }
+
+    @Test
     void resolvesTaggedFileTranslationsRelativeToTheLocaleFile() throws Exception {
         Path snippetsDirectory = Files.createDirectories(this.tempDir.resolve("snippets"));
         Files.writeString(snippetsDirectory.resolve("deeds.txt"), "First line%nHello {player}".formatted());

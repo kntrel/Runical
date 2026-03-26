@@ -4,6 +4,7 @@ import com.kntrel.mc.runical.core.internal.ListFormat;
 import com.kntrel.mc.runical.core.internal.LocaleBundle;
 import com.kntrel.mc.runical.core.internal.LocaleIndex;
 import com.kntrel.mc.runical.core.internal.LocaleSupport;
+import com.kntrel.mc.runical.core.internal.PlaceholderFlattener;
 import com.kntrel.mc.runical.core.internal.PlaceholderRenderer;
 import com.kntrel.mc.runical.core.internal.YamlLocaleLoader;
 import org.slf4j.Logger;
@@ -15,7 +16,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -752,13 +752,7 @@ public abstract class BaseRunical implements BaseTranslator, AutoCloseable {
         }
     }
     private String renderMessage(String template, Placeholder... args) {
-        Map<String, String> placeholders = new HashMap<>();
-        for (Placeholder argument : args) {
-            if (argument == null) {
-                continue;
-            }
-            placeholders.put(argument.name(), String.valueOf(argument.value()));
-        }
+        Map<String, String> placeholders = PlaceholderFlattener.flatten(args);
         return PlaceholderRenderer.render(template, placeholders::get);
     }
     private void cleanupIfNeeded(long accessSequence) {
