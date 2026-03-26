@@ -141,7 +141,8 @@ Rendering rules:
 
 - Placeholder names are matched exactly.
 - Placeholder values are converted with `String.valueOf(...)`.
-- `BundledPlaceholder` values expand into dotted placeholder tokens such as `{region.name}`.
+- `BundledPlaceholder` values expose the bundle default through the root token such as `{region}`.
+- `BundledPlaceholder` values also expand into dotted placeholder tokens such as `{region.name}`.
 - If a placeholder is missing, the token stays in the output unchanged.
 - `null` entries in the placeholder argument array are ignored.
 - Use `{{` for a literal `{` and `}}` for a literal `}`.
@@ -176,6 +177,13 @@ String translated = runical.translate(
 ```yaml
 region:
   message: "The name of the region {region.id} is {region.color}{region.name}"
+```
+
+The first value added with `of(...)` becomes the namespace default, so `{region}` would render as
+`Spawn` in the example above. You can override that root value explicitly:
+
+```java
+region.appendDefault("Region #12");
 ```
 
 ## Locale fallback order

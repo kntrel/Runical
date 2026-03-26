@@ -24,11 +24,19 @@ public final class PlaceholderFlattener {
 
     private static void collect(Map<String, String> placeholders, String name, Object value) {
         if (value instanceof BundledPlaceholder bundledPlaceholder) {
+            placeholders.put(name, stringify(bundledPlaceholder.defaultValue()));
             for (Map.Entry<String, Object> entry : bundledPlaceholder.entries().entrySet()) {
                 collect(placeholders, name + "." + entry.getKey(), entry.getValue());
             }
             return;
         }
-        placeholders.put(name, String.valueOf(value));
+        placeholders.put(name, stringify(value));
+    }
+
+    private static String stringify(Object value) {
+        if (value instanceof BundledPlaceholder bundledPlaceholder) {
+            return stringify(bundledPlaceholder.defaultValue());
+        }
+        return String.valueOf(value);
     }
 }

@@ -7,8 +7,8 @@ import java.util.Objects;
  *
  * <p>Placeholder names match tokens inside braces such as {@code {player}}. Values are converted
  * to strings with {@link String#valueOf(Object)} during rendering. When the value is a
- * {@link BundledPlaceholder}, its entries are exposed as dotted tokens such as
- * {@code {region.name}}.
+ * {@link BundledPlaceholder}, its default value is exposed through the root token such as
+ * {@code {person}}, while its entries are exposed as dotted tokens such as {@code {person.name}}.
  *
  * @param name placeholder token name
  * @param value placeholder value, which may be {@code null}

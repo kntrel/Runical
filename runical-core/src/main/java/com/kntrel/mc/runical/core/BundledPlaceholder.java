@@ -15,9 +15,11 @@ import java.util.Objects;
 public final class BundledPlaceholder {
 
     private final LinkedHashMap<String, Object> values;
+    private Object defaultValue;
 
-    private BundledPlaceholder(LinkedHashMap<String, Object> values) {
+    private BundledPlaceholder(LinkedHashMap<String, Object> values, Object defaultValue) {
         this.values = values;
+        this.defaultValue = defaultValue;
     }
 
     /**
@@ -32,14 +34,14 @@ public final class BundledPlaceholder {
     public static BundledPlaceholder of(String name, Object value) {
         LinkedHashMap<String, Object> values = new LinkedHashMap<>();
         put(values, name, value);
-        return new BundledPlaceholder(values);
+        return new BundledPlaceholder(values, value);
     }
 
     /**
-     * Adds a named value to the BundledPlaceHolder.
+     * Adds a named value to the bundled placeholder.
      *
      * <p>If the bundled placeholder already contains the same segment name, the new value replaces
-     * the previous value.
+     * the previous value. The bundle's default value is unchanged.
      *
      * @param name bundled placeholder segment name
      * @param value bundled placeholder value, which may be {@code null}
@@ -53,12 +55,36 @@ public final class BundledPlaceholder {
     }
 
     /**
+     * Replaces the value used when the bundle's namespace itself is referenced.
+     *
+     * <p>For example, if a bundle is passed as {@code Placeholder.of("person", bundled)}, then this
+     * method controls the value rendered for {@code {person}} while dotted entries such as
+     * {@code {person.name}} continue to come from the bundled entries.
+     *
+     * @param value namespace default value, which may be {@code null}
+     * @return this bundled placeholder
+     */
+    public BundledPlaceholder appendDefault(Object value) {
+        this.defaultValue = value;
+        return this;
+    }
+
+    /**
      * Returns the named values contained in this bundle.
      *
      * @return an unmodifiable view of the bundled values
      */
     public Map<String, Object> entries() {
         return Collections.unmodifiableMap(this.values);
+    }
+
+    /**
+     * Returns the value rendered when the bundle namespace itself is referenced.
+     *
+     * @return the namespace default value, which may be {@code null}
+     */
+    public Object defaultValue() {
+        return this.defaultValue;
     }
 
     private static void put(LinkedHashMap<String, Object> values, String name, Object value) {

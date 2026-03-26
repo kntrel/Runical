@@ -95,7 +95,7 @@ class BaseRunicalTest {
     void formatsBundledPlaceholdersIntoDottedTokens() throws Exception {
         write("en-us.yml", """
                 region:
-                  message: "The name of the region {region.id} is {region.color}{region.name}"
+                  message: "Welcome to {region}. The name of the region {region.id} is {region.color}{region.name}"
                 """);
 
         TestRunical runical = new TestRunical(this.tempDir, RunicalOptions.builder().defaultLocale("en-us").build());
@@ -109,7 +109,7 @@ class BaseRunicalTest {
                 Placeholder.of("region", region)
         );
 
-        assertEquals("The name of the region 12 is Blue Spawn", translated);
+        assertEquals("Welcome to Spawn. The name of the region 12 is Blue Spawn", translated);
     }
 
     @Test
@@ -133,6 +133,27 @@ class BaseRunicalTest {
         );
 
         assertEquals("Owner Sam lives in Spawn (99)", translated);
+    }
+
+    @Test
+    void supportsOverridingBundledPlaceholderDefaultValue() throws Exception {
+        write("en-us.yml", """
+                region:
+                  message: "Welcome to {region} ({region.id})"
+                """);
+
+        TestRunical runical = new TestRunical(this.tempDir, RunicalOptions.builder().defaultLocale("en-us").build());
+        BundledPlaceholder region = BundledPlaceholder.of("name", "Spawn")
+                .append("id", 12)
+                .appendDefault("Region #12");
+
+        String translated = runical.translate(
+                "en-us",
+                "region.message",
+                Placeholder.of("region", region)
+        );
+
+        assertEquals("Welcome to Region #12 (12)", translated);
     }
 
     @Test
