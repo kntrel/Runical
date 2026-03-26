@@ -157,6 +157,83 @@ class BaseRunicalTest {
     }
 
     @Test
+    void projectsTranslatableObjectsFromFieldsAndGetters() throws Exception {
+        write("en-us.yml", """
+                person:
+                  message: "{person} is {person.age} years old and has id {person.identifier}"
+                """);
+
+        TestRunical runical = new TestRunical(this.tempDir, RunicalOptions.builder().defaultLocale("en-us").build());
+
+        assertEquals(
+                "Alex is 29 years old and has id p-42",
+                runical.translate("en-us", "person.message", Placeholder.of("person", new AnnotatedPerson("Alex", 29, "p-42")))
+        );
+    }
+
+    @Test
+    void projectsNestedTranslatableObjectsRecursivelyAndSupportsRecordComponents() throws Exception {
+        write("en-us.yml", """
+                person:
+                  message: "{person} lives in {person.address} {person.address.zip}"
+                """);
+
+        TestRunical runical = new TestRunical(this.tempDir, RunicalOptions.builder().defaultLocale("en-us").build());
+        AddressRecord address = new AddressRecord("San Jose", "10101");
+        RecordBackedPerson person = new RecordBackedPerson("Alex", address);
+
+        assertEquals(
+                "Alex lives in San Jose 10101",
+                runical.translate("en-us", "person.message", Placeholder.of("person", person))
+        );
+    }
+
+    @Test
+    void doesNotProjectSubclassesUnlessTheyAreAnnotatedThemselves() throws Exception {
+        write("en-us.yml", """
+                person:
+                  message: "{person} {person.name}"
+                """);
+
+        TestRunical runical = new TestRunical(this.tempDir, RunicalOptions.builder().defaultLocale("en-us").build());
+
+        assertEquals(
+                "Employee(Alex) {person.name}",
+                runical.translate("en-us", "person.message", Placeholder.of("person", new UnannotatedEmployee("Alex", 29)))
+        );
+    }
+
+    @Test
+    void projectsAnnotatedSubclassesIncludingInheritedTranslationProperties() throws Exception {
+        write("en-us.yml", """
+                person:
+                  message: "{person} is {person.age}"
+                """);
+
+        TestRunical runical = new TestRunical(this.tempDir, RunicalOptions.builder().defaultLocale("en-us").build());
+
+        assertEquals(
+                "Alex is 29",
+                runical.translate("en-us", "person.message", Placeholder.of("person", new AnnotatedEmployee("Alex", 29)))
+        );
+    }
+
+    @Test
+    void rejectsMultipleRootTranslationProperties() throws Exception {
+        write("en-us.yml", """
+                person:
+                  message: "{person}"
+                """);
+
+        TestRunical runical = new TestRunical(this.tempDir, RunicalOptions.builder().defaultLocale("en-us").build());
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> runical.translate("en-us", "person.message", Placeholder.of("person", new InvalidRootPerson("Alex", "Al")))
+        );
+    }
+
+    @Test
     void validatesBundledPlaceholderSegmentNames() {
         assertThrows(IllegalArgumentException.class, () -> BundledPlaceholder.of(" ", "value"));
         assertThrows(IllegalArgumentException.class, () -> BundledPlaceholder.of("region.name", "value"));
@@ -621,6 +698,118 @@ class BaseRunicalTest {
 
         private int lookupCount(String locale) {
             return this.lookupCounts.getOrDefault(LocaleSupport.normalizeLocale(locale), 0);
+        }
+    }
+
+    @Translatable
+    private static class AnnotatedPerson {
+        private final String name;
+
+        @TranslationProperty
+        private final int age;
+
+        private final String identifier;
+
+        private AnnotatedPerson(String name, int age, String identifier) {
+            this.name = name;
+            this.age = age;
+            this.identifier = identifier;
+        }
+
+        @TranslationProperty(root = true)
+        public String getName() {
+            return this.name;
+        }
+
+        @TranslationProperty("identifier")
+        public String getIdentifier() {
+            return this.identifier;
+        }
+    }
+
+    @Translatable
+    private static final class RecordBackedPerson {
+        private final String name;
+
+        @TranslationProperty
+        private final AddressRecord address;
+
+        private RecordBackedPerson(String name, AddressRecord address) {
+            this.name = name;
+            this.address = address;
+        }
+
+        @TranslationProperty(root = true)
+        public String getName() {
+            return this.name;
+        }
+    }
+
+    @Translatable
+    private record AddressRecord(
+            @TranslationProperty(root = true) String city,
+            @TranslationProperty("zip") String postalCode
+    ) {
+    }
+
+    @Translatable
+    private static class BaseAnnotatedPerson {
+        private final String name;
+
+        private BaseAnnotatedPerson(String name) {
+            this.name = name;
+        }
+
+        @TranslationProperty(root = true)
+        public String getName() {
+            return this.name;
+        }
+    }
+
+    private static final class UnannotatedEmployee extends BaseAnnotatedPerson {
+        @SuppressWarnings("unused")
+        private final int age;
+
+        private UnannotatedEmployee(String name, int age) {
+            super(name);
+            this.age = age;
+        }
+
+        @Override
+        public String toString() {
+            return "Employee(" + getName() + ")";
+        }
+    }
+
+    @Translatable
+    private static final class AnnotatedEmployee extends BaseAnnotatedPerson {
+        @TranslationProperty
+        private final int age;
+
+        private AnnotatedEmployee(String name, int age) {
+            super(name);
+            this.age = age;
+        }
+    }
+
+    @Translatable
+    private static final class InvalidRootPerson {
+        private final String primaryName;
+        private final String secondaryName;
+
+        private InvalidRootPerson(String primaryName, String secondaryName) {
+            this.primaryName = primaryName;
+            this.secondaryName = secondaryName;
+        }
+
+        @TranslationProperty(root = true)
+        public String getPrimaryName() {
+            return this.primaryName;
+        }
+
+        @TranslationProperty(root = true)
+        public String getSecondaryName() {
+            return this.secondaryName;
         }
     }
 }

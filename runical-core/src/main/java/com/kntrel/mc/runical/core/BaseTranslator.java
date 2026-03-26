@@ -42,9 +42,10 @@ public interface BaseTranslator {
      * hyphens, and lower-casing the value. Placeholder values are rendered only when a translation
      * is found. Null placeholder entries are ignored, placeholder values are converted with
      * {@link String#valueOf(Object)}, {@link BundledPlaceholder bundled placeholder values} expose a
-     * root token such as {@code {person}} plus dotted tokens such as {@code {person.name}}, missing
-     * placeholders remain unchanged, and literal braces can be escaped with doubled braces such as
-     * <code>{{</code> and <code>}}</code>.
+     * root token such as {@code {person}} plus dotted tokens such as {@code {person.name}},
+     * {@link Translatable translatable objects} are projected into bundled placeholders
+     * reflectively, missing placeholders remain unchanged, and literal braces can be escaped with
+     * doubled braces such as <code>{{</code> and <code>}}</code>.
      *
      * @param locale requested locale
      * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this

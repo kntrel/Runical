@@ -15,11 +15,22 @@ import java.util.Objects;
 public final class BundledPlaceholder {
 
     private final LinkedHashMap<String, Object> values;
+    private boolean hasDefaultValue;
     private Object defaultValue;
 
-    private BundledPlaceholder(LinkedHashMap<String, Object> values, Object defaultValue) {
+    private BundledPlaceholder(LinkedHashMap<String, Object> values, boolean hasDefaultValue, Object defaultValue) {
         this.values = values;
+        this.hasDefaultValue = hasDefaultValue;
         this.defaultValue = defaultValue;
+    }
+
+    /**
+     * Creates an empty bundled placeholder without a namespace default value.
+     *
+     * @return an empty bundled placeholder
+     */
+    public static BundledPlaceholder empty() {
+        return new BundledPlaceholder(new LinkedHashMap<>(), false, null);
     }
 
     /**
@@ -34,7 +45,7 @@ public final class BundledPlaceholder {
     public static BundledPlaceholder of(String name, Object value) {
         LinkedHashMap<String, Object> values = new LinkedHashMap<>();
         put(values, name, value);
-        return new BundledPlaceholder(values, value);
+        return new BundledPlaceholder(values, true, value);
     }
 
     /**
@@ -65,6 +76,7 @@ public final class BundledPlaceholder {
      * @return this bundled placeholder
      */
     public BundledPlaceholder appendDefault(Object value) {
+        this.hasDefaultValue = true;
         this.defaultValue = value;
         return this;
     }
@@ -76,6 +88,15 @@ public final class BundledPlaceholder {
      */
     public Map<String, Object> entries() {
         return Collections.unmodifiableMap(this.values);
+    }
+
+    /**
+     * Returns whether this bundle exposes a namespace default value.
+     *
+     * @return {@code true} when the namespace token itself should resolve
+     */
+    public boolean hasDefaultValue() {
+        return this.hasDefaultValue;
     }
 
     /**

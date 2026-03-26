@@ -9,6 +9,7 @@ import java.util.Objects;
  * to strings with {@link String#valueOf(Object)} during rendering. When the value is a
  * {@link BundledPlaceholder}, its default value is exposed through the root token such as
  * {@code {person}}, while its entries are exposed as dotted tokens such as {@code {person.name}}.
+ * {@link Translatable Translatable} objects are projected into bundled placeholders reflectively.
  *
  * @param name placeholder token name
  * @param value placeholder value, which may be {@code null}
