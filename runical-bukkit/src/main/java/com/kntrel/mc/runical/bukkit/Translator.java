@@ -5,6 +5,7 @@ import com.kntrel.mc.runical.core.ListStyle;
 import com.kntrel.mc.runical.core.Placeholder;
 import com.kntrel.mc.runical.core.ResolvedTranslation;
 import net.md_5.bungee.api.chat.BaseComponent;
+import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.entity.Player;
 
 import java.util.Collection;
@@ -452,6 +453,6 @@ public interface Translator extends BaseTranslator {
     }
 
     private static BaseComponent compileResolvedComponent(ResolvedTranslation translation) {
-        return ComponentMarkupCompiler.compile(translation.orKey());
+        return ComponentMarkupCompiler.compile(translation.found() ? translation.value() : "");
     }
 }

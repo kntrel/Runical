@@ -7,6 +7,8 @@ import com.kntrel.mc.runical.core.Placeholder;
 import com.kntrel.mc.runical.core.ResolvedTranslation;
 import com.kntrel.mc.runical.core.RunicalOptions;
 import com.kntrel.mc.runical.core.internal.LocaleSupport;
+import net.md_5.bungee.api.chat.BaseComponent;
+import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -16,7 +18,7 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerLocaleChangeEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
-
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.FileAlreadyExistsException;
@@ -49,11 +51,10 @@ public final class Runical extends BaseRunical implements Translator, Listener {
     private final Object lock_;
 
 
-    //CONSTRUCTOR
+    //CONSTRUCTORS
     public Runical(Plugin plugin, String languagesFolderRelativePath) {
         this(plugin, languagesFolderRelativePath, RunicalOptions.builder().build());
     }
-
     public Runical(Plugin plugin, String languagesFolderRelativePath, RunicalOptions options) {
         super(resolveLanguagePath(plugin, normalizeRelativePath(languagesFolderRelativePath)), options);
         this.plugin_ = Objects.requireNonNull(plugin, "plugin");
@@ -65,6 +66,8 @@ public final class Runical extends BaseRunical implements Translator, Listener {
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
+
+    //API
     /** {@inheritDoc} */
     public Translator getChild(String segment) {
         return (Translator) super.getChild(segment);
@@ -143,15 +146,15 @@ public final class Runical extends BaseRunical implements Translator, Listener {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> sendTranslation(Player player, String key, Placeholder... args) {
-        String locale = localeOf(player);
-        return this.sendMessage(player, resolveAsync(locale, key, args).thenApply(ResolvedTranslation::orKey));
+        return this.sendMessage(player, this.translateAsComponentAsync(player, key, args), null);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> sendTranslationOrDefault(Player player, String key, String defaultValue, Placeholder... args) {
         String locale = localeOf(player);
-        return sendMessage(player, translateOrDefaultAsync(locale, key, defaultValue, args));
+        BaseComponent fallBack = ComponentMarkupCompiler.compile(defaultValue);
+        return sendMessage(player, this.translateAsComponentAsync(locale, key, args), fallBack);
     }
 
     @EventHandler
@@ -283,11 +286,19 @@ public final class Runical extends BaseRunical implements Translator, Listener {
         return normalizedLocale;
     }
 
-    CompletableFuture<Boolean> sendMessage(Player player, CompletableFuture<String> messageFuture) {
+    CompletableFuture<Boolean> sendMessage(Player player, CompletableFuture<BaseComponent> messageFuture, @Nullable BaseComponent fallback) {
         Objects.requireNonNull(player, "player");
         UUID playerId = player.getUniqueId();
 
-        return messageFuture.thenCompose(message -> {
+        return messageFuture.thenCompose(cmp -> {
+            if (cmp instanceof TextComponent tc && tc.getExtra().isEmpty() && tc.getText().isEmpty()) {
+                cmp = fallback;
+            }
+            if (cmp == null) {
+                return CompletableFuture.completedFuture(false);
+            }
+
+            final BaseComponent message = cmp;
             CompletableFuture<Boolean> sentFuture = new CompletableFuture<>();
             this.plugin_.getServer().getScheduler().runTask(this.plugin_, () -> {
                 Player target = this.plugin_.getServer().getPlayer(playerId);
@@ -296,7 +307,7 @@ public final class Runical extends BaseRunical implements Translator, Listener {
                     return;
                 }
 
-                target.sendMessage(message);
+                target.spigot().sendMessage(message);
                 sentFuture.complete(true);
             });
             return sentFuture;
