@@ -1,20 +1,19 @@
 package com.kntrel.mc.runical.core;
 
+import com.kntrel.mc.runical.core.dsl.TranslationJob;
+import com.kntrel.mc.runical.core.placeholder.Placeholder;
+
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
 
 final class BaseTranslatorNode implements BaseTranslator {
 
-    //FIELDS
     private final BaseRunical root_;
     private final String path_;
-
 
     BaseTranslatorNode(BaseRunical root, String path) {
         this.root_ = Objects.requireNonNull(root, "root");
         this.path_ = Objects.requireNonNull(path, "path");
     }
-
 
     @Override
     public String getPath() {
@@ -32,23 +31,8 @@ final class BaseTranslatorNode implements BaseTranslator {
     }
 
     @Override
-    public String translateOrDefault(String locale, String key, String defaultValue, Placeholder... args) {
-        return this.root_.translateOrDefault(locale, qualifyKey(key), defaultValue, args);
-    }
-
-    @Override
-    public CompletableFuture<String> translateOrDefaultAsync(String locale, String key, String defaultValue, Placeholder... args) {
-        return this.root_.translateOrDefaultAsync(locale, qualifyKey(key), defaultValue, args);
-    }
-
-    @Override
-    public ResolvedTranslation resolve(String locale, String key, Placeholder... args) {
-        return this.root_.resolve(locale, qualifyKey(key), args);
-    }
-
-    @Override
-    public CompletableFuture<ResolvedTranslation> resolveAsync(String locale, String key, Placeholder... args) {
-        return this.root_.resolveAsync(locale, qualifyKey(key), args);
+    public TranslationJob translate(String locale, String key, Placeholder... args) {
+        return this.root_.translate(locale, qualifyKey(key), args);
     }
 
     private String qualifyKey(String key) {

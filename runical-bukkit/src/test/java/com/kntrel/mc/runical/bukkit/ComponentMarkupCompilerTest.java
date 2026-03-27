@@ -2,9 +2,14 @@ package com.kntrel.mc.runical.bukkit;
 
 import com.kntrel.mc.runical.core.BaseRunical;
 import com.kntrel.mc.runical.core.ListStyle;
-import com.kntrel.mc.runical.core.Placeholder;
 import com.kntrel.mc.runical.core.ResolutionSource;
 import com.kntrel.mc.runical.core.ResolvedTranslation;
+import com.kntrel.mc.runical.core.placeholder.Placeholder;
+import com.kntrel.mc.runical.bukkit.dsl.AsyncTerminalTranslationJob;
+import com.kntrel.mc.runical.bukkit.dsl.PlayerTerminalTranslationJob;
+import com.kntrel.mc.runical.bukkit.dsl.PlayerTranslationJob;
+import com.kntrel.mc.runical.bukkit.dsl.TranslationJob;
+import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.TextComponent;
@@ -69,13 +74,13 @@ class ComponentMarkupCompilerTest {
     }
 
     @Test
-    void translateAsComponentUsesLocaleResolutionAndKeyFallback() {
+    void componentUsesLocaleResolutionAndKeyFallback() {
         RecordingTranslator translator = new RecordingTranslator(
                 new ResolvedTranslation("en-us", "title.key", "en-us", "<b>Title</b>", ResolutionSource.EXACT),
                 new ResolvedTranslation("en-us", "player.key", "en-us", "<i>Player</i>", ResolutionSource.EXACT)
         );
 
-        BaseComponent resolved = translator.translateAsComponent("en-us", "title.key", Placeholder.of("name", "Alex"));
+        BaseComponent resolved = translator.translate("en-us", "title.key", Placeholder.of("name", "Alex")).component();
         assertEquals("Title", BaseComponent.toPlainText(resolved));
         assertTrue(textComponent(componentSegments(resolved).get(0)).isBold());
         assertEquals("en-us", translator.lastLocale_);
@@ -83,24 +88,52 @@ class ComponentMarkupCompilerTest {
         assertEquals(1, translator.lastLocaleArgs_.length);
 
         translator.localeResult_ = new ResolvedTranslation("en-us", "missing.key", null, null, ResolutionSource.UNRESOLVED);
-        BaseComponent fallback = translator.translateAsComponent("en-us", "missing.key");
+        BaseComponent fallback = translator.translate("en-us", "missing.key").component();
         assertEquals("missing.key", BaseComponent.toPlainText(fallback));
     }
 
     @Test
-    void translateAsComponentAsyncUsesPlayerResolution() {
+    void asyncComponentUsesPlayerResolution() {
         RecordingTranslator translator = new RecordingTranslator(
                 new ResolvedTranslation("en-us", "unused", "en-us", "unused", ResolutionSource.EXACT),
                 new ResolvedTranslation("es-mx", "player.key", "es-mx", "<i>Jugador</i>", ResolutionSource.EXACT)
         );
         Player player = playerProxy();
 
-        BaseComponent component = translator.translateAsComponentAsync(player, "player.key").join();
+        BaseComponent component = translator.translate(player, "player.key").async().component().join();
 
         assertEquals("Jugador", BaseComponent.toPlainText(component));
         assertTrue(textComponent(componentSegments(component).get(0)).isItalic());
         assertSame(player, translator.lastPlayer_);
         assertEquals("player.key", translator.lastPlayerKey_);
+    }
+
+    @Test
+    void sendDefaultsToChatEndpoint() {
+        RecordingTranslator translator = new RecordingTranslator(
+                new ResolvedTranslation("en-us", "title.key", "en-us", "Title", ResolutionSource.EXACT),
+                new ResolvedTranslation("en-us", "player.key", "en-us", "Player", ResolutionSource.EXACT)
+        );
+        Player player = playerProxy();
+
+        translator.translate("en-us", "title.key").send(player).join();
+
+        assertSame(player, translator.lastSendPlayer_);
+        assertEquals(ChatMessageType.CHAT, translator.lastSendEndpoint_);
+    }
+
+    @Test
+    void sendActionBarUsesActionBarEndpointForBoundPlayers() {
+        RecordingTranslator translator = new RecordingTranslator(
+                new ResolvedTranslation("en-us", "title.key", "en-us", "Title", ResolutionSource.EXACT),
+                new ResolvedTranslation("en-us", "player.key", "en-us", "Player", ResolutionSource.EXACT)
+        );
+        Player player = playerProxy();
+
+        translator.translate(player, "player.key").sendActionBar().join();
+
+        assertSame(player, translator.lastSendPlayer_);
+        assertEquals(ChatMessageType.ACTION_BAR, translator.lastSendEndpoint_);
     }
 
     private static List<BaseComponent> componentSegments(BaseComponent component) {
@@ -174,6 +207,8 @@ class ComponentMarkupCompilerTest {
         private Player lastPlayer_;
         private String lastPlayerKey_;
         private Placeholder[] lastPlayerArgs_ = new Placeholder[0];
+        private Player lastSendPlayer_;
+        private ChatMessageType lastSendEndpoint_;
 
 
         private RecordingTranslator(ResolvedTranslation localeResult, ResolvedTranslation playerResult) {
@@ -197,66 +232,129 @@ class ComponentMarkupCompilerTest {
         }
 
         @Override
-        public String translateOrDefault(String locale, String key, String defaultValue, Placeholder... args) {
-            ResolvedTranslation resolved = this.resolve(locale, key, args);
-            return resolved.found() ? resolved.value() : defaultValue;
-        }
-
-        @Override
-        public CompletableFuture<String> translateOrDefaultAsync(String locale, String key, String defaultValue, Placeholder... args) {
-            return CompletableFuture.completedFuture(this.translateOrDefault(locale, key, defaultValue, args));
-        }
-
-        @Override
-        public ResolvedTranslation resolve(String locale, String key, Placeholder... args) {
+        public TranslationJob translate(String locale, String key, Placeholder... args) {
             this.lastLocale_ = locale;
             this.lastLocaleKey_ = key;
             this.lastLocaleArgs_ = args;
-            return this.localeResult_;
+            return new RecordingJob(this, this.localeResult_, null);
         }
 
         @Override
-        public CompletableFuture<ResolvedTranslation> resolveAsync(String locale, String key, Placeholder... args) {
-            return CompletableFuture.completedFuture(this.resolve(locale, key, args));
-        }
-
-        @Override
-        public String translateOrDefault(Player player, String key, String defaultValue, Placeholder... args) {
-            ResolvedTranslation resolved = this.resolve(player, key, args);
-            return resolved.found() ? resolved.value() : defaultValue;
-        }
-
-        @Override
-        public CompletableFuture<String> translateOrDefaultAsync(Player player, String key, String defaultValue, Placeholder... args) {
-            return CompletableFuture.completedFuture(this.translateOrDefault(player, key, defaultValue, args));
-        }
-
-        @Override
-        public ResolvedTranslation resolve(Player player, String key, Placeholder... args) {
+        public PlayerTranslationJob translate(Player player, String key, Placeholder... args) {
             this.lastPlayer_ = player;
             this.lastPlayerKey_ = key;
             this.lastPlayerArgs_ = args;
-            return this.playerResult_;
-        }
-
-        @Override
-        public CompletableFuture<ResolvedTranslation> resolveAsync(Player player, String key, Placeholder... args) {
-            return CompletableFuture.completedFuture(this.resolve(player, key, args));
+            return new RecordingJob(this, this.playerResult_, player);
         }
 
         @Override
         public String formatList(Player player, Collection<?> items, ListStyle style) {
             return items.stream().map(String::valueOf).reduce((left, right) -> left + ", " + right).orElse("");
         }
+    }
+
+    private static final class RecordingJob implements PlayerTranslationJob {
+
+        private final RecordingTranslator owner_;
+        private final ResolvedTranslation resolved_;
+        private final Player boundPlayer_;
+        private MissPolicy missPolicy_ = MissPolicy.KEY;
+        private String defaultValue_;
+
+        private RecordingJob(RecordingTranslator owner, ResolvedTranslation resolved, Player boundPlayer) {
+            this.owner_ = Objects.requireNonNull(owner, "owner");
+            this.resolved_ = Objects.requireNonNull(resolved, "resolved");
+            this.boundPlayer_ = boundPlayer;
+        }
 
         @Override
-        public CompletableFuture<Boolean> sendTranslation(Player player, String key, Placeholder... args) {
+        public PlayerTerminalTranslationJob orKey() {
+            this.missPolicy_ = MissPolicy.KEY;
+            this.defaultValue_ = null;
+            return this;
+        }
+
+        @Override
+        public PlayerTerminalTranslationJob orNull() {
+            this.missPolicy_ = MissPolicy.NULL;
+            this.defaultValue_ = null;
+            return this;
+        }
+
+        @Override
+        public PlayerTerminalTranslationJob orDefault(String defaultValue) {
+            this.missPolicy_ = MissPolicy.DEFAULT;
+            this.defaultValue_ = Objects.requireNonNull(defaultValue, "defaultValue");
+            return this;
+        }
+
+        @Override
+        public String message() {
+            return switch (this.missPolicy_) {
+                case KEY -> this.resolved_.orKey();
+                case NULL -> this.resolved_.value();
+                case DEFAULT -> this.resolved_.found() ? this.resolved_.value() : this.defaultValue_;
+            };
+        }
+
+        @Override
+        public ResolvedTranslation translation() {
+            return this.resolved_;
+        }
+
+        @Override
+        public BaseComponent component() {
+            String message = this.message();
+            return message == null ? null : ComponentMarkupCompiler.compile(message);
+        }
+
+        @Override
+        public CompletableFuture<Boolean> send(Player player, ChatMessageType endpoint) {
+            this.owner_.lastSendPlayer_ = player;
+            this.owner_.lastSendEndpoint_ = endpoint;
             return CompletableFuture.completedFuture(false);
         }
 
         @Override
-        public CompletableFuture<Boolean> sendTranslationOrDefault(Player player, String key, String defaultValue, Placeholder... args) {
+        public CompletableFuture<Boolean> send(ChatMessageType endpoint) {
+            this.owner_.lastSendPlayer_ = this.boundPlayer_;
+            this.owner_.lastSendEndpoint_ = endpoint;
             return CompletableFuture.completedFuture(false);
         }
+
+        @Override
+        public AsyncTerminalTranslationJob async() {
+            return new RecordingAsyncJob(this);
+        }
+    }
+
+    private static final class RecordingAsyncJob implements AsyncTerminalTranslationJob {
+
+        private final RecordingJob job_;
+
+        private RecordingAsyncJob(RecordingJob job) {
+            this.job_ = job;
+        }
+
+        @Override
+        public CompletableFuture<String> message() {
+            return CompletableFuture.completedFuture(this.job_.message());
+        }
+
+        @Override
+        public CompletableFuture<ResolvedTranslation> translation() {
+            return CompletableFuture.completedFuture(this.job_.translation());
+        }
+
+        @Override
+        public CompletableFuture<BaseComponent> component() {
+            return CompletableFuture.completedFuture(this.job_.component());
+        }
+    }
+
+    private enum MissPolicy {
+        KEY,
+        NULL,
+        DEFAULT
     }
 }

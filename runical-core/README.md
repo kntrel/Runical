@@ -23,7 +23,7 @@ same key-lookup contract. A minimal wrapper looks like this:
 
 ```java
 import com.kntrel.mc.runical.core.BaseRunical;
-import com.kntrel.mc.runical.core.Placeholder;
+import com.kntrel.mc.runical.core.placeholder.Placeholder;
 import com.kntrel.mc.runical.core.ResolvedTranslation;
 import com.kntrel.mc.runical.core.RunicalOptions;
 
@@ -49,12 +49,12 @@ try (RunicalCore runical = new RunicalCore(
             "es-mx",
             "greeting.message",
             Placeholder.of("player", "Alex")
-    );
+    ).message();
 
     BaseTranslator regionTranslator = runical.getChild("totem").getChild("region");
-    String regionName = regionTranslator.translate("es-mx", "naming.default");
+    String regionName = regionTranslator.translate("es-mx", "naming.default").message();
 
-    ResolvedTranslation resolved = runical.resolve("fr-ca", "greeting.message");
+    ResolvedTranslation resolved = runical.translate("fr-ca", "greeting.message").translation();
     String list = runical.formatList("es-mx", java.util.List.of("A", "B", "C"));
 }
 ```
@@ -198,9 +198,9 @@ Translation lookup follows this order:
 
 Behavior by API:
 
-- `translate(...)` returns the translation key when unresolved.
-- `translateOrNull(...)` returns `null` when unresolved.
-- `resolve(...)` returns a `ResolvedTranslation` with `source == ResolutionSource.UNRESOLVED`.
+- `translate(...).message()` returns the translation key when unresolved.
+- `translate(...).orNull().message()` returns `null` when unresolved.
+- `translate(...).translation()` returns a `ResolvedTranslation` with `source == ResolutionSource.UNRESOLVED`.
 
 `ResolvedTranslation` also tells you which locale actually provided the translation through
 `resolvedLocale()` and which fallback branch succeeded through `source()`.
@@ -313,12 +313,15 @@ provides list metadata, the built-in English defaults are used.
 
 The main user-facing methods on `BaseRunical` are:
 
-- `translate(...)`: resolve a translation and fall back to the key
-- `translateOrNull(...)`: resolve a translation and fall back to `null`
-- `resolve(...)`: resolve a translation and keep the lookup metadata
+- `translate(...)`: start a translation job
+- `translate(...).message()`: resolve a translation and fall back to the key
+- `translate(...).orNull().message()`: resolve a translation and fall back to `null`
+- `translate(...).orDefault(...).message()`: resolve a translation and fall back to a rendered default
+- `translate(...).translation()`: resolve a translation and keep the lookup metadata
+- `translate(...).async().message()`: async message lookup
+- `translate(...).async().translation()`: async raw lookup
 - `getChild(...)`: create a child translator rooted at a key prefix
 - `formatList(...)`: format a collection using localized list rules
-- `translateAsync(...)`, `translateOrNullAsync(...)`, `resolveAsync(...)`: async equivalents
 - `hasLocale(...)`: check whether a locale file exists in the current index
 - `isLoaded(...)`: check whether a locale is currently cached
 - `preload(...)`: load a locale ahead of time

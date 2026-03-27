@@ -1,4 +1,4 @@
-package com.kntrel.mc.runical.core;
+package com.kntrel.mc.runical.core.placeholder;
 
 import java.util.Objects;
 

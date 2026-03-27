@@ -1,7 +1,7 @@
-package com.kntrel.mc.runical.core.internal;
+package com.kntrel.mc.runical.core.placeholder.internal;
 
-import com.kntrel.mc.runical.core.BundledPlaceholder;
-import com.kntrel.mc.runical.core.Placeholder;
+import com.kntrel.mc.runical.core.placeholder.BundledPlaceholder;
+import com.kntrel.mc.runical.core.placeholder.Placeholder;
 
 import java.util.HashMap;
 import java.util.IdentityHashMap;

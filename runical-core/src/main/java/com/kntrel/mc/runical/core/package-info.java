@@ -11,10 +11,10 @@
  * {@link com.kntrel.mc.runical.core.BaseRunical#mount(String, String)}.
  * {@link com.kntrel.mc.runical.core.RunicalOptions} configures caching and async behavior, while
  * {@link com.kntrel.mc.runical.core.ResolvedTranslation},
- * {@link com.kntrel.mc.runical.core.Placeholder},
- * {@link com.kntrel.mc.runical.core.BundledPlaceholder},
- * {@link com.kntrel.mc.runical.core.Translatable}, and
- * {@link com.kntrel.mc.runical.core.TranslationProperty} model lookup results and translation-time
- * placeholder inputs.
+ * {@link com.kntrel.mc.runical.core.placeholder.Placeholder},
+ * {@link com.kntrel.mc.runical.core.placeholder.BundledPlaceholder},
+ * {@link com.kntrel.mc.runical.core.placeholder.Translatable}, and
+ * {@link com.kntrel.mc.runical.core.placeholder.TranslationProperty} model lookup results and
+ * translation-time placeholder inputs.
  */
 package com.kntrel.mc.runical.core;

@@ -1,6 +1,10 @@
 package com.kntrel.mc.runical.core;
 
 import com.kntrel.mc.runical.core.internal.LocaleSupport;
+import com.kntrel.mc.runical.core.placeholder.BundledPlaceholder;
+import com.kntrel.mc.runical.core.placeholder.Placeholder;
+import com.kntrel.mc.runical.core.placeholder.Translatable;
+import com.kntrel.mc.runical.core.placeholder.TranslationProperty;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -47,28 +51,27 @@ class BaseRunicalTest {
 
         TestRunical runical = new TestRunical(this.tempDir, RunicalOptions.builder().defaultLocale("en-us").build());
 
-        assertEquals("Exito general", runical.translate("es-mx", "command.success"));
+        assertEquals("Exito general", runical.translate("es-mx", "command.success").message());
 
-        ResolvedTranslation sibling = runical.resolve("es-mx", "command.sibling");
+        ResolvedTranslation sibling = runical.translate("es-mx", "command.sibling").translation();
         assertEquals("Exito regional", sibling.value());
         assertEquals("es-ar", sibling.resolvedLocale());
         assertEquals(ResolutionSource.SIBLING, sibling.source());
 
-        ResolvedTranslation fallback = runical.resolve("fr-ca", "command.success");
+        ResolvedTranslation fallback = runical.translate("fr-ca", "command.success").translation();
         assertEquals("Default success", fallback.value());
         assertEquals("en-us", fallback.resolvedLocale());
         assertEquals(ResolutionSource.DEFAULT, fallback.source());
 
-        assertEquals("missing.key", runical.translate("fr-ca", "missing.key"));
-        assertNull(runical.translateOrNull("fr-ca", "missing.key"));
+        assertEquals("missing.key", runical.translate("fr-ca", "missing.key").message());
+        assertNull(runical.translate("fr-ca", "missing.key").orNull().message());
         assertEquals(
                 "Fallback value 12",
-                runical.translateOrDefault(
+                runical.translate(
                         "fr-ca",
                         "missing.key",
-                        "Fallback value {blockCount}",
                         Placeholder.of("blockCount", 12)
-                )
+                ).orDefault("Fallback value {blockCount}").message()
         );
     }
 
@@ -86,7 +89,7 @@ class BaseRunicalTest {
                 "greeting.message",
                 Placeholder.of("player", "Alex"),
                 Placeholder.of("amount", 12)
-        );
+        ).message();
 
         assertEquals("Hello Alex, {literal} {missing} 12", translated);
     }
@@ -107,7 +110,7 @@ class BaseRunicalTest {
                 "en-us",
                 "region.message",
                 Placeholder.of("region", region)
-        );
+        ).message();
 
         assertEquals("Welcome to Spawn. The name of the region 12 is Blue Spawn", translated);
     }
@@ -130,7 +133,7 @@ class BaseRunicalTest {
                 Placeholder.of("region", region),
                 Placeholder.of("region.owner.name", "Sam"),
                 Placeholder.of("region.id", 99)
-        );
+        ).message();
 
         assertEquals("Owner Sam lives in Spawn (99)", translated);
     }
@@ -151,7 +154,7 @@ class BaseRunicalTest {
                 "en-us",
                 "region.message",
                 Placeholder.of("region", region)
-        );
+        ).message();
 
         assertEquals("Welcome to Region #12 (12)", translated);
     }
@@ -167,7 +170,7 @@ class BaseRunicalTest {
 
         assertEquals(
                 "Alex is 29 years old and has id p-42",
-                runical.translate("en-us", "person.message", Placeholder.of("person", new AnnotatedPerson("Alex", 29, "p-42")))
+                runical.translate("en-us", "person.message", Placeholder.of("person", new AnnotatedPerson("Alex", 29, "p-42"))).message()
         );
     }
 
@@ -184,7 +187,7 @@ class BaseRunicalTest {
 
         assertEquals(
                 "Alex lives in San Jose 10101",
-                runical.translate("en-us", "person.message", Placeholder.of("person", person))
+                runical.translate("en-us", "person.message", Placeholder.of("person", person)).message()
         );
     }
 
@@ -199,7 +202,7 @@ class BaseRunicalTest {
 
         assertEquals(
                 "Employee(Alex) {person.name}",
-                runical.translate("en-us", "person.message", Placeholder.of("person", new UnannotatedEmployee("Alex", 29)))
+                runical.translate("en-us", "person.message", Placeholder.of("person", new UnannotatedEmployee("Alex", 29))).message()
         );
     }
 
@@ -214,7 +217,7 @@ class BaseRunicalTest {
 
         assertEquals(
                 "Alex is 29",
-                runical.translate("en-us", "person.message", Placeholder.of("person", new AnnotatedEmployee("Alex", 29)))
+                runical.translate("en-us", "person.message", Placeholder.of("person", new AnnotatedEmployee("Alex", 29))).message()
         );
     }
 
@@ -229,7 +232,7 @@ class BaseRunicalTest {
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> runical.translate("en-us", "person.message", Placeholder.of("person", new InvalidRootPerson("Alex", "Al")))
+                () -> runical.translate("en-us", "person.message", Placeholder.of("person", new InvalidRootPerson("Alex", "Al"))).message()
         );
     }
 
@@ -257,7 +260,7 @@ class BaseRunicalTest {
 
         assertEquals(
                 "First line%nHello Alex".formatted(),
-                runical.translate("en-us", "totem.region.deeds", Placeholder.of("player", "Alex"))
+                runical.translate("en-us", "totem.region.deeds", Placeholder.of("player", "Alex")).message()
         );
     }
 
@@ -275,7 +278,7 @@ class BaseRunicalTest {
                 Map.of("snippets/deeds.txt", "Bundled {player}")
         );
 
-        assertEquals("Bundled Alex", runical.translate("en-us", "totem.region.deeds", Placeholder.of("player", "Alex")));
+        assertEquals("Bundled Alex", runical.translate("en-us", "totem.region.deeds", Placeholder.of("player", "Alex")).message());
         assertTrue(Files.exists(this.tempDir.resolve("snippets").resolve("deeds.txt")));
         assertEquals(1, runical.fileLookupCount("snippets/deeds.txt"));
     }
@@ -292,8 +295,8 @@ class BaseRunicalTest {
 
         TestRunical runical = new TestRunical(this.tempDir, RunicalOptions.builder().defaultLocale("en-us").build());
 
-        assertEquals("Hello", runical.translate("en-us", "greeting.message"));
-        assertEquals("totem.region.deeds", runical.translate("en-us", "totem.region.deeds"));
+        assertEquals("Hello", runical.translate("en-us", "greeting.message").message());
+        assertEquals("totem.region.deeds", runical.translate("en-us", "totem.region.deeds").message());
     }
 
     @Test
@@ -311,11 +314,11 @@ class BaseRunicalTest {
         assertEquals("totem", runical.getChild("totem").getPath());
         assertEquals("totem.region", regionTranslator.getPath());
         assertEquals(
-                runical.translate("en-us", "totem.region.naming.default", Placeholder.of("player", "Alex")),
-                regionTranslator.translate("en-us", "naming.default", Placeholder.of("player", "Alex"))
+                runical.translate("en-us", "totem.region.naming.default", Placeholder.of("player", "Alex")).message(),
+                regionTranslator.translate("en-us", "naming.default", Placeholder.of("player", "Alex")).message()
         );
 
-        ResolvedTranslation unresolved = regionTranslator.resolve("en-us", "missing.key");
+        ResolvedTranslation unresolved = regionTranslator.translate("en-us", "missing.key").translation();
         assertEquals("totem.region.missing.key", unresolved.key());
         assertEquals("totem.region.missing.key", unresolved.orKey());
     }
@@ -360,16 +363,16 @@ class BaseRunicalTest {
         BaseTranslator hierarchyAlias = deedsTranslator.getChild("hierarchy");
 
         assertEquals("totem.deeds", deedsTranslator.getPath());
-        assertEquals("Deeds prologue", deedsTranslator.translate("en-us", "prologue"));
-        assertEquals("Admins", deedsTranslator.translate("en-us", "hierarchy.1.1.name"));
-        assertEquals("Everything", deedsTranslator.translate("en-us", "hierarchy.1.1.description"));
-        assertEquals("Admins", runical.translate("en-us", "totem.deeds.hierarchy.1.1.name"));
+        assertEquals("Deeds prologue", deedsTranslator.translate("en-us", "prologue").message());
+        assertEquals("Admins", deedsTranslator.translate("en-us", "hierarchy.1.1.name").message());
+        assertEquals("Everything", deedsTranslator.translate("en-us", "hierarchy.1.1.description").message());
+        assertEquals("Admins", runical.translate("en-us", "totem.deeds.hierarchy.1.1.name").message());
         assertEquals("totem.deeds.hierarchy", hierarchyAlias.getPath());
 
-        ResolvedTranslation localUnresolved = deedsTranslator.resolve("en-us", "missing.key");
+        ResolvedTranslation localUnresolved = deedsTranslator.translate("en-us", "missing.key").translation();
         assertEquals("totem.deeds.missing.key", localUnresolved.key());
 
-        ResolvedTranslation mountedUnresolved = deedsTranslator.resolve("en-us", "hierarchy.missing.key");
+        ResolvedTranslation mountedUnresolved = deedsTranslator.translate("en-us", "hierarchy.missing.key").translation();
         assertEquals("totem.deeds.hierarchy.missing.key", mountedUnresolved.key());
     }
 
@@ -392,8 +395,8 @@ class BaseRunicalTest {
         runical.mount(hierarchy, "totem.deeds.hierarchy");
         runical.mount(deeds, hierarchy, "admin_hierarchy");
 
-        assertEquals("Admins", runical.translate("en-us", "totem.deeds.hierarchy.roles.admin.name"));
-        assertEquals("Admins", deeds.translate("en-us", "admin_hierarchy.roles.admin.name"));
+        assertEquals("Admins", runical.translate("en-us", "totem.deeds.hierarchy.roles.admin.name").message());
+        assertEquals("Admins", deeds.translate("en-us", "admin_hierarchy.roles.admin.name").message());
         assertEquals("totem.deeds.admin_hierarchy", deeds.getChild("admin_hierarchy").getPath());
         assertEquals("totem.deeds.hierarchy", deeds.getChild("hierarchy").getPath());
     }
@@ -473,14 +476,14 @@ class BaseRunicalTest {
                 .maxLoadedLocales(10)
                 .build());
 
-        runical.translate("es-mx", "value");
+        runical.translate("es-mx", "value").message();
         assertTrue(runical.isLoaded("es-mx"));
 
-        runical.translate("en-us", "value");
-        runical.translate("en-us", "value");
+        runical.translate("en-us", "value").message();
+        runical.translate("en-us", "value").message();
         assertFalse(runical.isLoaded("es-mx"));
 
-        runical.translate("es-mx", "value");
+        runical.translate("es-mx", "value").message();
         runical.retain("es-mx");
         assertTrue(runical.isLoaded("es-mx"));
         runical.release("es-mx");
@@ -496,9 +499,9 @@ class BaseRunicalTest {
         TestRunical runical = new TestRunical(this.tempDir, RunicalOptions.builder().defaultLocale("en-us").build());
 
         List<CompletableFuture<String>> futures = List.of(
-                runical.translateAsync("en-us", "message", Placeholder.of("player", "Alex")),
-                runical.translateAsync("en-us", "message", Placeholder.of("player", "Sam")),
-                runical.translateAsync("en-us", "message", Placeholder.of("player", "Morgan"))
+                runical.translate("en-us", "message", Placeholder.of("player", "Alex")).async().message(),
+                runical.translate("en-us", "message", Placeholder.of("player", "Sam")).async().message(),
+                runical.translate("en-us", "message", Placeholder.of("player", "Morgan")).async().message()
         );
 
         assertEquals(
@@ -508,12 +511,11 @@ class BaseRunicalTest {
 
         assertEquals(
                 "Fallback async 24",
-                runical.translateOrDefaultAsync(
+                runical.translate(
                         "en-us",
                         "missing.message",
-                        "Fallback async {blockCount}",
                         Placeholder.of("blockCount", 24)
-                ).join()
+                ).orDefault("Fallback async {blockCount}").async().message().join()
         );
     }
 
@@ -542,24 +544,24 @@ class BaseRunicalTest {
                 )
         );
 
-        ResolvedTranslation exact = runical.resolve("es-mx", "messages.exact");
+        ResolvedTranslation exact = runical.translate("es-mx", "messages.exact").translation();
         assertEquals("Exact success", exact.value());
         assertEquals(ResolutionSource.EXACT, exact.source());
         assertTrue(Files.exists(this.tempDir.resolve("es-mx.yml")));
 
-        ResolvedTranslation general = runical.resolve("es-mx", "messages.general");
+        ResolvedTranslation general = runical.translate("es-mx", "messages.general").translation();
         assertEquals("General success", general.value());
         assertEquals("es", general.resolvedLocale());
         assertEquals(ResolutionSource.GENERAL, general.source());
         assertTrue(Files.exists(this.tempDir.resolve("es.yml")));
 
-        ResolvedTranslation sibling = runical.resolve("es-mx", "messages.sibling");
+        ResolvedTranslation sibling = runical.translate("es-mx", "messages.sibling").translation();
         assertEquals("Sibling success", sibling.value());
         assertEquals("es-ar", sibling.resolvedLocale());
         assertEquals(ResolutionSource.SIBLING, sibling.source());
         assertTrue(Files.exists(this.tempDir.resolve("es-ar.yml")));
 
-        ResolvedTranslation fallback = runical.resolve("fr-ca", "messages.default");
+        ResolvedTranslation fallback = runical.translate("fr-ca", "messages.default").translation();
         assertEquals("Default success", fallback.value());
         assertEquals("en-us", fallback.resolvedLocale());
         assertEquals(ResolutionSource.DEFAULT, fallback.source());
@@ -589,7 +591,7 @@ class BaseRunicalTest {
                 )
         );
 
-        assertEquals("messages.missing", runical.translate("es", "messages.missing"));
+        assertEquals("messages.missing", runical.translate("es", "messages.missing").message());
         assertEquals(0, runical.lookupCount("es"));
     }
 
