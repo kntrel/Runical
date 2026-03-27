@@ -1,11 +1,13 @@
 package com.kntrel.mc.runical.core;
 
+import com.kntrel.mc.runical.core.dsl.TranslationJob;
 import com.kntrel.mc.runical.core.internal.ListFormat;
 import com.kntrel.mc.runical.core.internal.LocaleBundle;
 import com.kntrel.mc.runical.core.internal.LocaleIndex;
 import com.kntrel.mc.runical.core.internal.LocaleSupport;
-import com.kntrel.mc.runical.core.internal.PlaceholderFlattener;
-import com.kntrel.mc.runical.core.internal.PlaceholderRenderer;
+import com.kntrel.mc.runical.core.placeholder.Placeholder;
+import com.kntrel.mc.runical.core.placeholder.internal.PlaceholderFlattener;
+import com.kntrel.mc.runical.core.placeholder.internal.PlaceholderRenderer;
 import com.kntrel.mc.runical.core.internal.YamlLocaleLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -216,25 +218,12 @@ public abstract class BaseRunical implements BaseTranslator, AutoCloseable {
 
     /** {@inheritDoc} */
     @Override
-    public final String translateOrDefault(String locale, String key, String defaultValue, Placeholder... args) {
-        Objects.requireNonNull(defaultValue, "defaultValue");
-        String value = this.resolve(locale, key, args).value();
-        return value != null ? value : this.renderMessage(defaultValue, args);
+    public TranslationJob translate(String locale, String key, Placeholder... args) {
+        this.validateTranslationRequest(locale, key);
+        return new TranslationJobImpl(this, locale, key, args);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public final CompletableFuture<String> translateOrDefaultAsync(String locale, String key, String defaultValue, Placeholder... args) {
-        Objects.requireNonNull(defaultValue, "defaultValue");
-        return this.resolveAsync(locale, key, args).thenApply(resolved -> {
-            String value = resolved.value();
-            return value != null ? value : renderMessage(defaultValue, args);
-        });
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public final ResolvedTranslation resolve(String locale, String key, Placeholder... args) {
+    protected final ResolvedTranslation resolveTranslation(String locale, String key, Placeholder... args) {
         this.ensureOpen();
         String normalizedLocale = this.normalizeLocale(locale);
         String normalizedKey = requireKey(key);
@@ -247,7 +236,7 @@ public abstract class BaseRunical implements BaseTranslator, AutoCloseable {
             return adaptResolvedKey(resolved, normalizedKey);
         }
 
-        String rendered = renderMessage(resolved.value(), args);
+        String rendered = renderMessageTemplate(resolved.value(), args);
         cleanupIfNeeded(accessSequence);
         return new ResolvedTranslation(
                 resolved.requestedLocale(),
@@ -258,11 +247,9 @@ public abstract class BaseRunical implements BaseTranslator, AutoCloseable {
         );
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public final CompletableFuture<ResolvedTranslation> resolveAsync(String locale, String key, Placeholder... args) {
+    protected final CompletableFuture<ResolvedTranslation> resolveTranslationAsync(String locale, String key, Placeholder... args) {
         ensureOpen();
-        return CompletableFuture.supplyAsync(() -> resolve(locale, key, args), this.asyncExecutor);
+        return CompletableFuture.supplyAsync(() -> resolveTranslation(locale, key, args), this.asyncExecutor);
     }
 
     /**
@@ -751,9 +738,15 @@ public abstract class BaseRunical implements BaseTranslator, AutoCloseable {
             this.inFlightLoads.remove(locale, createdFuture);
         }
     }
-    private String renderMessage(String template, Placeholder... args) {
+    protected final String renderMessageTemplate(String template, Placeholder... args) {
         Map<String, String> placeholders = PlaceholderFlattener.flatten(args);
         return PlaceholderRenderer.render(template, placeholders::get);
+    }
+
+    protected final void validateTranslationRequest(String locale, String key) {
+        this.ensureOpen();
+        this.normalizeLocale(locale);
+        requireKey(key);
     }
     private void cleanupIfNeeded(long accessSequence) {
         if (accessSequence % this.options.cleanupIntervalQueries() != 0L) {

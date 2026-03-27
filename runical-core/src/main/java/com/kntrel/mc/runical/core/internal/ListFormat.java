@@ -1,6 +1,7 @@
 package com.kntrel.mc.runical.core.internal;
 
 import com.kntrel.mc.runical.core.ListStyle;
+import com.kntrel.mc.runical.core.placeholder.internal.PlaceholderRenderer;
 
 import java.util.ArrayList;
 import java.util.Collection;

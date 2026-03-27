@@ -1,12 +1,15 @@
 package com.kntrel.mc.runical.bukkit;
 
 import com.kntrel.mc.runical.core.BaseTranslator;
-import com.kntrel.mc.runical.core.Placeholder;
-import net.md_5.bungee.api.chat.BaseComponent;
+import com.kntrel.mc.runical.core.dsl.AsyncTerminalTranslationJob;
+import com.kntrel.mc.runical.core.dsl.TerminalTranslationJob;
+import com.kntrel.mc.runical.core.dsl.TranslationJob;
+import com.kntrel.mc.runical.core.placeholder.Placeholder;
+import com.kntrel.mc.runical.bukkit.dsl.PlayerTerminalTranslationJob;
+import com.kntrel.mc.runical.bukkit.dsl.PlayerTranslationJob;
+import net.md_5.bungee.api.ChatMessageType;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
-
-import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -28,31 +31,41 @@ class TranslatorApiTest {
     }
 
     @Test
-    void exposesComponentTranslationOverloadsOnPublicApi() throws Exception {
-        assertEquals(BaseComponent.class, Translator.class.getMethod(
-                "translateAsComponent", String.class, String.class, Placeholder[].class
+    void exposesJobBasedTranslationApiOnPublicApi() throws Exception {
+        assertEquals(TranslationJob.class, BaseTranslator.class.getMethod(
+                "translate", String.class, String.class, Placeholder[].class
         ).getReturnType());
-        assertEquals(BaseComponent.class, Translator.class.getMethod(
-                "translateAsComponent", String.class, String.class
+        assertEquals(com.kntrel.mc.runical.bukkit.dsl.TranslationJob.class, Translator.class.getMethod(
+                "translate", String.class, String.class, Placeholder[].class
         ).getReturnType());
-        assertEquals(CompletableFuture.class, Translator.class.getMethod(
-                "translateAsComponentAsync", String.class, String.class, Placeholder[].class
+        assertEquals(PlayerTranslationJob.class, Translator.class.getMethod(
+                "translate", Player.class, String.class, Placeholder[].class
         ).getReturnType());
-        assertEquals(CompletableFuture.class, Translator.class.getMethod(
-                "translateAsComponentAsync", String.class, String.class
-        ).getReturnType());
+    }
 
-        assertEquals(BaseComponent.class, Translator.class.getMethod(
-                "translateAsComponent", Player.class, String.class, Placeholder[].class
-        ).getReturnType());
-        assertEquals(BaseComponent.class, Translator.class.getMethod(
-                "translateAsComponent", Player.class, String.class
-        ).getReturnType());
-        assertEquals(CompletableFuture.class, Translator.class.getMethod(
-                "translateAsComponentAsync", Player.class, String.class, Placeholder[].class
-        ).getReturnType());
-        assertEquals(CompletableFuture.class, Translator.class.getMethod(
-                "translateAsComponentAsync", Player.class, String.class
-        ).getReturnType());
+    @Test
+    void narrowsMissHandlingToTerminalSurfaces() throws Exception {
+        assertEquals(TerminalTranslationJob.class, TranslationJob.class.getMethod("orNull").getReturnType());
+        assertEquals(AsyncTerminalTranslationJob.class, TerminalTranslationJob.class.getMethod("async").getReturnType());
+
+        assertEquals(
+                com.kntrel.mc.runical.bukkit.dsl.TerminalTranslationJob.class,
+                com.kntrel.mc.runical.bukkit.dsl.TranslationJob.class.getMethod("orNull").getReturnType()
+        );
+        assertEquals(
+                com.kntrel.mc.runical.bukkit.dsl.AsyncTerminalTranslationJob.class,
+                com.kntrel.mc.runical.bukkit.dsl.TerminalTranslationJob.class.getMethod("async").getReturnType()
+        );
+        assertEquals(PlayerTerminalTranslationJob.class, PlayerTranslationJob.class.getMethod("orNull").getReturnType());
+        assertEquals(
+                java.util.concurrent.CompletableFuture.class,
+                com.kntrel.mc.runical.bukkit.dsl.TerminalTranslationJob.class.getMethod(
+                        "send", Player.class, ChatMessageType.class
+                ).getReturnType()
+        );
+        assertEquals(
+                java.util.concurrent.CompletableFuture.class,
+                PlayerTerminalTranslationJob.class.getMethod("send", ChatMessageType.class).getReturnType()
+        );
     }
 }

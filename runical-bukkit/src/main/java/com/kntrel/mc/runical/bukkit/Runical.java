@@ -3,12 +3,14 @@ package com.kntrel.mc.runical.bukkit;
 import com.kntrel.mc.runical.core.BaseRunical;
 import com.kntrel.mc.runical.core.BaseTranslator;
 import com.kntrel.mc.runical.core.ListStyle;
-import com.kntrel.mc.runical.core.Placeholder;
 import com.kntrel.mc.runical.core.ResolvedTranslation;
 import com.kntrel.mc.runical.core.RunicalOptions;
 import com.kntrel.mc.runical.core.internal.LocaleSupport;
+import com.kntrel.mc.runical.core.placeholder.Placeholder;
+import com.kntrel.mc.runical.bukkit.dsl.PlayerTranslationJob;
+import com.kntrel.mc.runical.bukkit.dsl.TranslationJob;
+import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.BaseComponent;
-import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -18,7 +20,6 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerLocaleChangeEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
-import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.FileAlreadyExistsException;
@@ -115,46 +116,23 @@ public final class Runical extends BaseRunical implements Translator, Listener {
 
     /** {@inheritDoc} */
     @Override
-    public String translateOrDefault(Player player, String key, String defaultValue, Placeholder... args) {
-        return this.translateOrDefault(localeOf(player), key, defaultValue, args);
+    public TranslationJob translate(String locale, String key, Placeholder... args) {
+        this.validateTranslationRequest(locale, key);
+        return new TranslationJobImpl(this, locale, key, args);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<String> translateOrDefaultAsync(Player player, String key, String defaultValue, Placeholder... args) {
-        return this.translateOrDefaultAsync(localeOf(player), key, defaultValue, args);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public ResolvedTranslation resolve(Player player, String key, Placeholder... args) {
-        return this.resolve(localeOf(player), key, args);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<ResolvedTranslation> resolveAsync(Player player, String key, Placeholder... args) {
-        return this.resolveAsync(localeOf(player), key, args);
+    public PlayerTranslationJob translate(Player player, String key, Placeholder... args) {
+        Objects.requireNonNull(player, "player");
+        this.validateTranslationRequest(localeOf(player), key);
+        return new PlayerTranslationJobImpl(this, player, key, args);
     }
 
     /** {@inheritDoc} */
     @Override
     public String formatList(Player player, Collection<?> items, ListStyle style) {
         return this.formatList(localeOf(player), items, style);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Boolean> sendTranslation(Player player, String key, Placeholder... args) {
-        return this.sendMessage(player, this.translateAsComponentAsync(player, key, args), null);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Boolean> sendTranslationOrDefault(Player player, String key, String defaultValue, Placeholder... args) {
-        String locale = localeOf(player);
-        BaseComponent fallBack = ComponentMarkupCompiler.compile(defaultValue);
-        return sendMessage(player, this.translateAsComponentAsync(locale, key, args), fallBack);
     }
 
     @EventHandler
@@ -249,6 +227,26 @@ public final class Runical extends BaseRunical implements Translator, Listener {
         return (Translator) super.childTranslator(path);
     }
 
+    ResolvedTranslation resolveLocaleTranslation(String locale, String key, Placeholder... args) {
+        return super.resolveTranslation(locale, key, args);
+    }
+
+    CompletableFuture<ResolvedTranslation> resolveLocaleTranslationAsync(String locale, String key, Placeholder... args) {
+        return super.resolveTranslationAsync(locale, key, args);
+    }
+
+    ResolvedTranslation resolvePlayerTranslation(Player player, String key, Placeholder... args) {
+        return this.resolveLocaleTranslation(localeOf(player), key, args);
+    }
+
+    CompletableFuture<ResolvedTranslation> resolvePlayerTranslationAsync(Player player, String key, Placeholder... args) {
+        return this.resolveLocaleTranslationAsync(localeOf(player), key, args);
+    }
+
+    String renderLocaleMessage(String template, Placeholder... args) {
+        return super.renderMessageTemplate(template, args);
+    }
+
     String localeOf(Player player) {
         Objects.requireNonNull(player, "player");
         UUID playerId = player.getUniqueId();
@@ -286,14 +284,12 @@ public final class Runical extends BaseRunical implements Translator, Listener {
         return normalizedLocale;
     }
 
-    CompletableFuture<Boolean> sendMessage(Player player, CompletableFuture<BaseComponent> messageFuture, @Nullable BaseComponent fallback) {
+    CompletableFuture<Boolean> sendMessage(Player player, ChatMessageType endpoint, CompletableFuture<BaseComponent> messageFuture) {
         Objects.requireNonNull(player, "player");
+        Objects.requireNonNull(endpoint, "endpoint");
         UUID playerId = player.getUniqueId();
 
         return messageFuture.thenCompose(cmp -> {
-            if (cmp instanceof TextComponent tc && tc.getExtra().isEmpty() && tc.getText().isEmpty()) {
-                cmp = fallback;
-            }
             if (cmp == null) {
                 return CompletableFuture.completedFuture(false);
             }
@@ -307,7 +303,7 @@ public final class Runical extends BaseRunical implements Translator, Listener {
                     return;
                 }
 
-                target.spigot().sendMessage(message);
+                target.spigot().sendMessage(endpoint, message);
                 sentFuture.complete(true);
             });
             return sentFuture;
