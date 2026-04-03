@@ -132,6 +132,9 @@ String translated = runical.translate("en-us", "greeting.message")
         .message();
 ```
 
+You can also append in bulk with `arguments(new Argument(...), ...)` or
+`arguments(List.of(...))`.
+
 Rendering rules:
 
 - Argument names are matched exactly against placeholder tokens.

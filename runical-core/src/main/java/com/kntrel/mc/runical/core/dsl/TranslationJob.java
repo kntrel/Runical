@@ -2,6 +2,8 @@ package com.kntrel.mc.runical.core.dsl;
 
 import com.kntrel.mc.runical.core.ResolvedTranslation;
 import com.kntrel.mc.runical.core.argument.Argument;
+import java.util.Arrays;
+import java.util.Collection;
 
 /**
  * Mutable translation DSL that accumulates miss-handling intent until a terminal operation is
@@ -10,12 +12,32 @@ import com.kntrel.mc.runical.core.argument.Argument;
 public interface TranslationJob extends TerminalTranslationJob {
 
     /**
+     * Adds translation arguments to the job.
+     *
+     * @param arguments the arguments
+     * @return this job
+     */
+    default TranslationJob arguments(Argument... arguments) {
+        return this.arguments(Arrays.asList(arguments));
+    }
+
+    /**
+     * Adds translation arguments to the job.
+     *
+     * @param arguments the arguments
+     * @return this job
+     */
+    TranslationJob arguments(Collection<Argument> arguments);
+
+    /**
      * Adds a translation argument to the job, to be resolved and rendered on top of a placeholder of the same name.
      *
      * @param argument the argument
      * @return this job
      */
-    TranslationJob argument(Argument argument);
+    default TranslationJob argument(Argument argument) {
+        return this.arguments(argument);
+    }
 
     /**
      * Adds a named translation argument to the job.

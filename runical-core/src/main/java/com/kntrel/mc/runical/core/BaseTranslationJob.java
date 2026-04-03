@@ -5,6 +5,7 @@ import com.kntrel.mc.runical.core.dsl.TerminalTranslationJob;
 import com.kntrel.mc.runical.core.dsl.TranslationJob;
 import com.kntrel.mc.runical.core.argument.Argument;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
@@ -25,8 +26,8 @@ public abstract class BaseTranslationJob implements TranslationJob {
     }
 
     @Override
-    public TranslationJob argument(Argument argument) {
-        this.args_.add(argument);
+    public TranslationJob arguments(Collection<Argument> arguments) {
+        this.args_.addAll(arguments);
         return this;
     }
 

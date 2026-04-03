@@ -10,6 +10,7 @@ import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.BaseComponent;
 import org.bukkit.entity.Player;
 
+import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
@@ -25,8 +26,8 @@ abstract class BaseBukkitTranslationJob extends BaseTranslationJob implements Tr
     }
 
     @Override
-    public TranslationJob argument(Argument argument) {
-        super.argument(argument);
+    public TranslationJob arguments(Collection<Argument> arguments) {
+        super.arguments(arguments);
         return this;
     }
 

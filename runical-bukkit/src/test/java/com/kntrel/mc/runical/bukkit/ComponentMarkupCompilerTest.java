@@ -268,13 +268,19 @@ class ComponentMarkupCompilerTest {
         }
 
         @Override
-        public PlayerTranslationJob argument(Argument argument) {
+        public PlayerTranslationJob arguments(Collection<Argument> arguments) {
+            for (Argument argument : arguments) {
+                this.appendArgument(argument);
+            }
+            return this;
+        }
+
+        private void appendArgument(Argument argument) {
             if (this.boundPlayer_ == null) {
                 this.owner_.lastLocaleArgs_ = appendArgument(this.owner_.lastLocaleArgs_, argument);
             } else {
                 this.owner_.lastPlayerArgs_ = appendArgument(this.owner_.lastPlayerArgs_, argument);
             }
-            return this;
         }
 
         @Override

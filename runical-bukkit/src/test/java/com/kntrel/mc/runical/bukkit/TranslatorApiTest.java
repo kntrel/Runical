@@ -1,6 +1,7 @@
 package com.kntrel.mc.runical.bukkit;
 
 import com.kntrel.mc.runical.core.BaseTranslator;
+import com.kntrel.mc.runical.core.argument.Argument;
 import com.kntrel.mc.runical.core.dsl.AsyncTranslationJob;
 import com.kntrel.mc.runical.core.dsl.AsyncTerminalTranslationJob;
 import com.kntrel.mc.runical.core.dsl.TerminalTranslationJob;
@@ -46,13 +47,42 @@ class TranslatorApiTest {
     @Test
     void exposesFluentArgumentDslOnPublicApi() throws Exception {
         assertEquals(TranslationJob.class, TranslationJob.class.getMethod(
+                "arguments", Argument[].class
+        ).getReturnType());
+        assertEquals(TranslationJob.class, TranslationJob.class.getMethod(
+                "arguments", java.util.Collection.class
+        ).getReturnType());
+        assertEquals(TranslationJob.class, TranslationJob.class.getMethod(
                 "argument", String.class, Object.class
+        ).getReturnType());
+        assertEquals(TranslationJob.class, TranslationJob.class.getMethod(
+                "argument", Argument.class
+        ).getReturnType());
+
+        assertEquals(com.kntrel.mc.runical.bukkit.dsl.TranslationJob.class, com.kntrel.mc.runical.bukkit.dsl.TranslationJob.class.getMethod(
+                "arguments", Argument[].class
+        ).getReturnType());
+        assertEquals(com.kntrel.mc.runical.bukkit.dsl.TranslationJob.class, com.kntrel.mc.runical.bukkit.dsl.TranslationJob.class.getMethod(
+                "arguments", java.util.Collection.class
         ).getReturnType());
         assertEquals(com.kntrel.mc.runical.bukkit.dsl.TranslationJob.class, com.kntrel.mc.runical.bukkit.dsl.TranslationJob.class.getMethod(
                 "argument", String.class, Object.class
         ).getReturnType());
+        assertEquals(com.kntrel.mc.runical.bukkit.dsl.TranslationJob.class, com.kntrel.mc.runical.bukkit.dsl.TranslationJob.class.getMethod(
+                "argument", Argument.class
+        ).getReturnType());
+
+        assertEquals(PlayerTranslationJob.class, PlayerTranslationJob.class.getMethod(
+                "arguments", Argument[].class
+        ).getReturnType());
+        assertEquals(PlayerTranslationJob.class, PlayerTranslationJob.class.getMethod(
+                "arguments", java.util.Collection.class
+        ).getReturnType());
         assertEquals(PlayerTranslationJob.class, PlayerTranslationJob.class.getMethod(
                 "argument", String.class, Object.class
+        ).getReturnType());
+        assertEquals(PlayerTranslationJob.class, PlayerTranslationJob.class.getMethod(
+                "argument", Argument.class
         ).getReturnType());
     }
 

@@ -6,6 +6,7 @@ import com.kntrel.mc.runical.bukkit.dsl.PlayerTerminalTranslationJob;
 import com.kntrel.mc.runical.bukkit.dsl.PlayerTranslationJob;
 import net.md_5.bungee.api.ChatMessageType;
 import org.bukkit.entity.Player;
+import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
@@ -19,8 +20,8 @@ final class PlayerTranslationJobImpl extends BaseBukkitTranslationJob implements
     }
 
     @Override
-    public PlayerTranslationJob argument(Argument argument) {
-        super.argument(argument);
+    public PlayerTranslationJob arguments(Collection<Argument> arguments) {
+        super.arguments(arguments);
         return this;
     }
 

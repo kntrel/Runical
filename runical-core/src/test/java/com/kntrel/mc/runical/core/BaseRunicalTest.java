@@ -1,6 +1,7 @@
 package com.kntrel.mc.runical.core;
 
 import com.kntrel.mc.runical.core.internal.LocaleSupport;
+import com.kntrel.mc.runical.core.argument.Argument;
 import com.kntrel.mc.runical.core.argument.BundledArgument;
 import com.kntrel.mc.runical.core.argument.Translatable;
 import com.kntrel.mc.runical.core.argument.TranslationProperty;
@@ -106,6 +107,33 @@ class BaseRunicalTest {
                 .message();
 
         assertEquals("Hello Alex, you have 12 messages.", translated);
+    }
+
+    @Test
+    void supportsBulkTranslationArguments() throws Exception {
+        write("en-us.yml", """
+                greeting:
+                  message: "Hello {player}, you have {count} messages."
+                """);
+
+        TestRunical runical = new TestRunical(this.tempDir, RunicalOptions.builder().defaultLocale("en-us").build());
+
+        String fromVarargs = runical.translate("en-us", "greeting.message")
+                .arguments(
+                        new Argument("player", "Alex"),
+                        new Argument("count", 12)
+                )
+                .message();
+
+        String fromCollection = runical.translate("en-us", "greeting.message")
+                .arguments(List.of(
+                        new Argument("player", "Sam"),
+                        new Argument("count", 7)
+                ))
+                .message();
+
+        assertEquals("Hello Alex, you have 12 messages.", fromVarargs);
+        assertEquals("Hello Sam, you have 7 messages.", fromCollection);
     }
 
     @Test

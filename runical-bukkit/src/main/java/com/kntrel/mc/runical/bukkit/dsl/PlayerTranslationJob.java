@@ -1,6 +1,8 @@
 package com.kntrel.mc.runical.bukkit.dsl;
 
 import com.kntrel.mc.runical.core.argument.Argument;
+import java.util.Arrays;
+import java.util.Collection;
 
 /**
  * Player-bound Bukkit translation job.
@@ -8,7 +10,17 @@ import com.kntrel.mc.runical.core.argument.Argument;
 public interface PlayerTranslationJob extends TranslationJob, PlayerTerminalTranslationJob {
 
     @Override
-    PlayerTranslationJob argument(Argument argument);
+    default PlayerTranslationJob arguments(Argument... arguments) {
+        return this.arguments(Arrays.asList(arguments));
+    }
+
+    @Override
+    PlayerTranslationJob arguments(Collection<Argument> arguments);
+
+    @Override
+    default PlayerTranslationJob argument(Argument argument) {
+        return this.arguments(argument);
+    }
 
     @Override
     default PlayerTranslationJob argument(String name, Object value) {
