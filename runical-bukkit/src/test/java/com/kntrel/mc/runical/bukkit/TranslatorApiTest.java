@@ -1,6 +1,7 @@
 package com.kntrel.mc.runical.bukkit;
 
 import com.kntrel.mc.runical.core.BaseTranslator;
+import com.kntrel.mc.runical.core.dsl.AsyncTranslationJob;
 import com.kntrel.mc.runical.core.dsl.AsyncTerminalTranslationJob;
 import com.kntrel.mc.runical.core.dsl.TerminalTranslationJob;
 import com.kntrel.mc.runical.core.dsl.TranslationJob;
@@ -47,6 +48,7 @@ class TranslatorApiTest {
     void narrowsMissHandlingToTerminalSurfaces() throws Exception {
         assertEquals(TerminalTranslationJob.class, TranslationJob.class.getMethod("orNull").getReturnType());
         assertEquals(AsyncTerminalTranslationJob.class, TerminalTranslationJob.class.getMethod("async").getReturnType());
+        assertEquals(AsyncTranslationJob.class, TranslationJob.class.getMethod("async").getReturnType());
 
         assertEquals(
                 com.kntrel.mc.runical.bukkit.dsl.TerminalTranslationJob.class,
@@ -55,6 +57,10 @@ class TranslatorApiTest {
         assertEquals(
                 com.kntrel.mc.runical.bukkit.dsl.AsyncTerminalTranslationJob.class,
                 com.kntrel.mc.runical.bukkit.dsl.TerminalTranslationJob.class.getMethod("async").getReturnType()
+        );
+        assertEquals(
+                com.kntrel.mc.runical.bukkit.dsl.AsyncTranslationJob.class,
+                com.kntrel.mc.runical.bukkit.dsl.TranslationJob.class.getMethod("async").getReturnType()
         );
         assertEquals(PlayerTerminalTranslationJob.class, PlayerTranslationJob.class.getMethod("orNull").getReturnType());
         assertEquals(

@@ -5,7 +5,7 @@ import com.kntrel.mc.runical.core.ListStyle;
 import com.kntrel.mc.runical.core.ResolutionSource;
 import com.kntrel.mc.runical.core.ResolvedTranslation;
 import com.kntrel.mc.runical.core.placeholder.Placeholder;
-import com.kntrel.mc.runical.bukkit.dsl.AsyncTerminalTranslationJob;
+import com.kntrel.mc.runical.bukkit.dsl.AsyncTranslationJob;
 import com.kntrel.mc.runical.bukkit.dsl.PlayerTerminalTranslationJob;
 import com.kntrel.mc.runical.bukkit.dsl.PlayerTranslationJob;
 import com.kntrel.mc.runical.bukkit.dsl.TranslationJob;
@@ -323,12 +323,12 @@ class ComponentMarkupCompilerTest {
         }
 
         @Override
-        public AsyncTerminalTranslationJob async() {
+        public AsyncTranslationJob async() {
             return new RecordingAsyncJob(this);
         }
     }
 
-    private static final class RecordingAsyncJob implements AsyncTerminalTranslationJob {
+    private static final class RecordingAsyncJob implements AsyncTranslationJob {
 
         private final RecordingJob job_;
 

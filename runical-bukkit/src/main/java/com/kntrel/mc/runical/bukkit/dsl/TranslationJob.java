@@ -13,4 +13,7 @@ public interface TranslationJob extends com.kntrel.mc.runical.core.dsl.Translati
 
     @Override
     TerminalTranslationJob orDefault(String defaultValue);
+
+    @Override
+    AsyncTranslationJob async();
 }

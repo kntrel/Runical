@@ -3,7 +3,7 @@ package com.kntrel.mc.runical.bukkit;
 import com.kntrel.mc.runical.core.BaseTranslationJob;
 import com.kntrel.mc.runical.core.ResolvedTranslation;
 import com.kntrel.mc.runical.core.placeholder.Placeholder;
-import com.kntrel.mc.runical.bukkit.dsl.AsyncTerminalTranslationJob;
+import com.kntrel.mc.runical.bukkit.dsl.AsyncTranslationJob;
 import com.kntrel.mc.runical.bukkit.dsl.TerminalTranslationJob;
 import com.kntrel.mc.runical.bukkit.dsl.TranslationJob;
 import net.md_5.bungee.api.ChatMessageType;
@@ -59,12 +59,12 @@ abstract class BaseBukkitTranslationJob extends BaseTranslationJob implements Tr
     }
 
     @Override
-    public AsyncTerminalTranslationJob async() {
-        return (AsyncTerminalTranslationJob) super.async();
+    public AsyncTranslationJob async() {
+        return (AsyncTranslationJob) super.async();
     }
 
     @Override
-    protected AsyncTerminalTranslationJob createAsyncTerminal() {
+    protected AsyncTranslationJob createAsyncTerminal() {
         return new AsyncView();
     }
 
@@ -81,7 +81,7 @@ abstract class BaseBukkitTranslationJob extends BaseTranslationJob implements Tr
         return message == null ? null : ComponentMarkupCompiler.compile(message);
     }
 
-    private final class AsyncView implements AsyncTerminalTranslationJob {
+    private final class AsyncView implements AsyncTranslationJob {
 
         @Override
         public CompletableFuture<String> message() {

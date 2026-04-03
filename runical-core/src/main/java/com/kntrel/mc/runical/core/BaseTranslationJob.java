@@ -1,6 +1,6 @@
 package com.kntrel.mc.runical.core;
 
-import com.kntrel.mc.runical.core.dsl.AsyncTerminalTranslationJob;
+import com.kntrel.mc.runical.core.dsl.AsyncTranslationJob;
 import com.kntrel.mc.runical.core.dsl.TerminalTranslationJob;
 import com.kntrel.mc.runical.core.dsl.TranslationJob;
 import com.kntrel.mc.runical.core.placeholder.Placeholder;
@@ -17,7 +17,7 @@ public abstract class BaseTranslationJob implements TranslationJob {
     private final Placeholder[] args_;
     private MissPolicy missPolicy_ = MissPolicy.KEY;
     private String defaultValue_;
-    private AsyncTerminalTranslationJob asyncTerminal_;
+    private AsyncTranslationJob asyncTerminal_;
 
     protected BaseTranslationJob(Placeholder... args) {
         this.args_ = args == null ? EMPTY_ARGS : args;
@@ -56,7 +56,7 @@ public abstract class BaseTranslationJob implements TranslationJob {
     }
 
     @Override
-    public AsyncTerminalTranslationJob async() {
+    public AsyncTranslationJob async() {
         if (this.asyncTerminal_ == null) {
             this.asyncTerminal_ = this.createAsyncTerminal();
         }
@@ -79,7 +79,7 @@ public abstract class BaseTranslationJob implements TranslationJob {
         };
     }
 
-    protected AsyncTerminalTranslationJob createAsyncTerminal() {
+    protected AsyncTranslationJob createAsyncTerminal() {
         return new AsyncView();
     }
 
@@ -98,7 +98,7 @@ public abstract class BaseTranslationJob implements TranslationJob {
     protected record TerminalSnapshot(MissPolicy missPolicy, String defaultValue) {
     }
 
-    private final class AsyncView implements AsyncTerminalTranslationJob {
+    private final class AsyncView implements AsyncTranslationJob {
 
         @Override
         public CompletableFuture<String> message() {
