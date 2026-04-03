@@ -4,7 +4,7 @@ import com.kntrel.mc.runical.core.BaseRunical;
 import com.kntrel.mc.runical.core.ListStyle;
 import com.kntrel.mc.runical.core.ResolutionSource;
 import com.kntrel.mc.runical.core.ResolvedTranslation;
-import com.kntrel.mc.runical.core.placeholder.Placeholder;
+import com.kntrel.mc.runical.core.argument.Argument;
 import com.kntrel.mc.runical.bukkit.dsl.AsyncTranslationJob;
 import com.kntrel.mc.runical.bukkit.dsl.PlayerTerminalTranslationJob;
 import com.kntrel.mc.runical.bukkit.dsl.PlayerTranslationJob;
@@ -15,8 +15,8 @@ import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
-
 import java.lang.reflect.Proxy;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -80,7 +80,7 @@ class ComponentMarkupCompilerTest {
                 new ResolvedTranslation("en-us", "player.key", "en-us", "<i>Player</i>", ResolutionSource.EXACT)
         );
 
-        BaseComponent resolved = translator.translate("en-us", "title.key", Placeholder.of("name", "Alex")).component();
+        BaseComponent resolved = translator.translate("en-us", "title.key").argument("name", "Alex").component();
         assertEquals("Title", BaseComponent.toPlainText(resolved));
         assertTrue(textComponent(componentSegments(resolved).get(0)).isBold());
         assertEquals("en-us", translator.lastLocale_);
@@ -203,10 +203,10 @@ class ComponentMarkupCompilerTest {
         private final ResolvedTranslation playerResult_;
         private String lastLocale_;
         private String lastLocaleKey_;
-        private Placeholder[] lastLocaleArgs_ = new Placeholder[0];
+        private Argument[] lastLocaleArgs_ = new Argument[0];
         private Player lastPlayer_;
         private String lastPlayerKey_;
-        private Placeholder[] lastPlayerArgs_ = new Placeholder[0];
+        private Argument[] lastPlayerArgs_ = new Argument[0];
         private Player lastSendPlayer_;
         private ChatMessageType lastSendEndpoint_;
 
@@ -232,18 +232,18 @@ class ComponentMarkupCompilerTest {
         }
 
         @Override
-        public TranslationJob translate(String locale, String key, Placeholder... args) {
+        public TranslationJob translate(String locale, String key) {
             this.lastLocale_ = locale;
             this.lastLocaleKey_ = key;
-            this.lastLocaleArgs_ = args;
+            this.lastLocaleArgs_ = new Argument[0];
             return new RecordingJob(this, this.localeResult_, null);
         }
 
         @Override
-        public PlayerTranslationJob translate(Player player, String key, Placeholder... args) {
+        public PlayerTranslationJob translate(Player player, String key) {
             this.lastPlayer_ = player;
             this.lastPlayerKey_ = key;
-            this.lastPlayerArgs_ = args;
+            this.lastPlayerArgs_ = new Argument[0];
             return new RecordingJob(this, this.playerResult_, player);
         }
 
@@ -265,6 +265,16 @@ class ComponentMarkupCompilerTest {
             this.owner_ = Objects.requireNonNull(owner, "owner");
             this.resolved_ = Objects.requireNonNull(resolved, "resolved");
             this.boundPlayer_ = boundPlayer;
+        }
+
+        @Override
+        public PlayerTranslationJob argument(Argument argument) {
+            if (this.boundPlayer_ == null) {
+                this.owner_.lastLocaleArgs_ = appendArgument(this.owner_.lastLocaleArgs_, argument);
+            } else {
+                this.owner_.lastPlayerArgs_ = appendArgument(this.owner_.lastPlayerArgs_, argument);
+            }
+            return this;
         }
 
         @Override
@@ -325,6 +335,12 @@ class ComponentMarkupCompilerTest {
         @Override
         public AsyncTranslationJob async() {
             return new RecordingAsyncJob(this);
+        }
+
+        private static Argument[] appendArgument(Argument[] existing, Argument argument) {
+            Argument[] expanded = Arrays.copyOf(existing, existing.length + 1);
+            expanded[existing.length] = argument;
+            return expanded;
         }
     }
 

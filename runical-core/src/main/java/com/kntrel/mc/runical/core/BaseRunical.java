@@ -5,9 +5,9 @@ import com.kntrel.mc.runical.core.internal.ListFormat;
 import com.kntrel.mc.runical.core.internal.LocaleBundle;
 import com.kntrel.mc.runical.core.internal.LocaleIndex;
 import com.kntrel.mc.runical.core.internal.LocaleSupport;
-import com.kntrel.mc.runical.core.placeholder.Placeholder;
-import com.kntrel.mc.runical.core.placeholder.internal.PlaceholderFlattener;
-import com.kntrel.mc.runical.core.placeholder.internal.PlaceholderRenderer;
+import com.kntrel.mc.runical.core.argument.Argument;
+import com.kntrel.mc.runical.core.argument.internal.ArgumentFlattener;
+import com.kntrel.mc.runical.core.argument.internal.PlaceholderRenderer;
 import com.kntrel.mc.runical.core.internal.YamlLocaleLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -218,12 +218,12 @@ public abstract class BaseRunical implements BaseTranslator, AutoCloseable {
 
     /** {@inheritDoc} */
     @Override
-    public TranslationJob translate(String locale, String key, Placeholder... args) {
+    public TranslationJob translate(String locale, String key) {
         this.validateTranslationRequest(locale, key);
-        return new TranslationJobImpl(this, locale, key, args);
+        return new TranslationJobImpl(this, locale, key);
     }
 
-    protected final ResolvedTranslation resolveTranslation(String locale, String key, Placeholder... args) {
+    protected final ResolvedTranslation resolveTranslation(String locale, String key, Argument[] args) {
         this.ensureOpen();
         String normalizedLocale = this.normalizeLocale(locale);
         String normalizedKey = requireKey(key);
@@ -247,7 +247,7 @@ public abstract class BaseRunical implements BaseTranslator, AutoCloseable {
         );
     }
 
-    protected final CompletableFuture<ResolvedTranslation> resolveTranslationAsync(String locale, String key, Placeholder... args) {
+    protected final CompletableFuture<ResolvedTranslation> resolveTranslationAsync(String locale, String key, Argument[] args) {
         ensureOpen();
         return CompletableFuture.supplyAsync(() -> resolveTranslation(locale, key, args), this.asyncExecutor);
     }
@@ -738,8 +738,8 @@ public abstract class BaseRunical implements BaseTranslator, AutoCloseable {
             this.inFlightLoads.remove(locale, createdFuture);
         }
     }
-    protected final String renderMessageTemplate(String template, Placeholder... args) {
-        Map<String, String> placeholders = PlaceholderFlattener.flatten(args);
+    protected final String renderMessageTemplate(String template, Argument[] args) {
+        Map<String, String> placeholders = ArgumentFlattener.flatten(args);
         return PlaceholderRenderer.render(template, placeholders::get);
     }
 

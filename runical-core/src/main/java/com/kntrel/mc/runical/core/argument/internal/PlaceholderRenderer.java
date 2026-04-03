@@ -1,4 +1,4 @@
-package com.kntrel.mc.runical.core.placeholder.internal;
+package com.kntrel.mc.runical.core.argument.internal;
 
 import java.util.function.Function;
 

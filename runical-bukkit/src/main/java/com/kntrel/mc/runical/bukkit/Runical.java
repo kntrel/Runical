@@ -6,7 +6,7 @@ import com.kntrel.mc.runical.core.ListStyle;
 import com.kntrel.mc.runical.core.ResolvedTranslation;
 import com.kntrel.mc.runical.core.RunicalOptions;
 import com.kntrel.mc.runical.core.internal.LocaleSupport;
-import com.kntrel.mc.runical.core.placeholder.Placeholder;
+import com.kntrel.mc.runical.core.argument.Argument;
 import com.kntrel.mc.runical.bukkit.dsl.PlayerTranslationJob;
 import com.kntrel.mc.runical.bukkit.dsl.TranslationJob;
 import net.md_5.bungee.api.ChatMessageType;
@@ -116,17 +116,17 @@ public final class Runical extends BaseRunical implements Translator, Listener {
 
     /** {@inheritDoc} */
     @Override
-    public TranslationJob translate(String locale, String key, Placeholder... args) {
+    public TranslationJob translate(String locale, String key) {
         this.validateTranslationRequest(locale, key);
-        return new TranslationJobImpl(this, locale, key, args);
+        return new TranslationJobImpl(this, locale, key);
     }
 
     /** {@inheritDoc} */
     @Override
-    public PlayerTranslationJob translate(Player player, String key, Placeholder... args) {
+    public PlayerTranslationJob translate(Player player, String key) {
         Objects.requireNonNull(player, "player");
         this.validateTranslationRequest(localeOf(player), key);
-        return new PlayerTranslationJobImpl(this, player, key, args);
+        return new PlayerTranslationJobImpl(this, player, key);
     }
 
     /** {@inheritDoc} */
@@ -227,23 +227,23 @@ public final class Runical extends BaseRunical implements Translator, Listener {
         return (Translator) super.childTranslator(path);
     }
 
-    ResolvedTranslation resolveLocaleTranslation(String locale, String key, Placeholder... args) {
+    ResolvedTranslation resolveLocaleTranslation(String locale, String key, Argument[] args) {
         return super.resolveTranslation(locale, key, args);
     }
 
-    CompletableFuture<ResolvedTranslation> resolveLocaleTranslationAsync(String locale, String key, Placeholder... args) {
+    CompletableFuture<ResolvedTranslation> resolveLocaleTranslationAsync(String locale, String key, Argument[] args) {
         return super.resolveTranslationAsync(locale, key, args);
     }
 
-    ResolvedTranslation resolvePlayerTranslation(Player player, String key, Placeholder... args) {
+    ResolvedTranslation resolvePlayerTranslation(Player player, String key, Argument[] args) {
         return this.resolveLocaleTranslation(localeOf(player), key, args);
     }
 
-    CompletableFuture<ResolvedTranslation> resolvePlayerTranslationAsync(Player player, String key, Placeholder... args) {
+    CompletableFuture<ResolvedTranslation> resolvePlayerTranslationAsync(Player player, String key, Argument[] args) {
         return this.resolveLocaleTranslationAsync(localeOf(player), key, args);
     }
 
-    String renderLocaleMessage(String template, Placeholder... args) {
+    String renderLocaleMessage(String template, Argument[] args) {
         return super.renderMessageTemplate(template, args);
     }
 

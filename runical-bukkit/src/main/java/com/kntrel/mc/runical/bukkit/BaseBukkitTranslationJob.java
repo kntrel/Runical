@@ -2,10 +2,10 @@ package com.kntrel.mc.runical.bukkit;
 
 import com.kntrel.mc.runical.core.BaseTranslationJob;
 import com.kntrel.mc.runical.core.ResolvedTranslation;
-import com.kntrel.mc.runical.core.placeholder.Placeholder;
 import com.kntrel.mc.runical.bukkit.dsl.AsyncTranslationJob;
 import com.kntrel.mc.runical.bukkit.dsl.TerminalTranslationJob;
 import com.kntrel.mc.runical.bukkit.dsl.TranslationJob;
+import com.kntrel.mc.runical.core.argument.Argument;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.BaseComponent;
 import org.bukkit.entity.Player;
@@ -18,10 +18,16 @@ abstract class BaseBukkitTranslationJob extends BaseTranslationJob implements Tr
     private final Runical root_;
     private final String key_;
 
-    BaseBukkitTranslationJob(Runical root, String key, Placeholder... args) {
-        super(args);
+    BaseBukkitTranslationJob(Runical root, String key) {
+        super();
         this.root_ = Objects.requireNonNull(root, "root");
         this.key_ = Objects.requireNonNull(key, "key");
+    }
+
+    @Override
+    public TranslationJob argument(Argument argument) {
+        super.argument(argument);
+        return this;
     }
 
     @Override
@@ -45,7 +51,7 @@ abstract class BaseBukkitTranslationJob extends BaseTranslationJob implements Tr
     @Override
     public BaseComponent component() {
         TerminalSnapshot snapshot = this.snapshot();
-        return this.compileComponent(this.resolveRaw(), snapshot);
+        return this.compileComponent(this.resolveRaw(snapshot.args()), snapshot);
     }
 
     @Override
@@ -53,7 +59,7 @@ abstract class BaseBukkitTranslationJob extends BaseTranslationJob implements Tr
         Objects.requireNonNull(player, "player");
         Objects.requireNonNull(endpoint, "endpoint");
         TerminalSnapshot snapshot = this.snapshot();
-        CompletableFuture<BaseComponent> messageFuture = this.resolveRawAsync()
+        CompletableFuture<BaseComponent> messageFuture = this.resolveRawAsync(snapshot.args())
                 .thenApply(resolved -> this.compileComponent(resolved, snapshot));
         return this.root_.sendMessage(player, endpoint, messageFuture);
     }
@@ -86,19 +92,19 @@ abstract class BaseBukkitTranslationJob extends BaseTranslationJob implements Tr
         @Override
         public CompletableFuture<String> message() {
             TerminalSnapshot snapshot = BaseBukkitTranslationJob.this.snapshot();
-            return BaseBukkitTranslationJob.this.resolveRawAsync()
+            return BaseBukkitTranslationJob.this.resolveRawAsync(snapshot.args())
                     .thenApply(resolved -> BaseBukkitTranslationJob.this.materializeMessage(resolved, snapshot));
         }
 
         @Override
         public CompletableFuture<ResolvedTranslation> translation() {
-            return BaseBukkitTranslationJob.this.resolveRawAsync();
+            return BaseBukkitTranslationJob.this.resolveRawAsync(BaseBukkitTranslationJob.this.args());
         }
 
         @Override
         public CompletableFuture<BaseComponent> component() {
             TerminalSnapshot snapshot = BaseBukkitTranslationJob.this.snapshot();
-            return BaseBukkitTranslationJob.this.resolveRawAsync()
+            return BaseBukkitTranslationJob.this.resolveRawAsync(snapshot.args())
                     .thenApply(resolved -> BaseBukkitTranslationJob.this.compileComponent(resolved, snapshot));
         }
     }

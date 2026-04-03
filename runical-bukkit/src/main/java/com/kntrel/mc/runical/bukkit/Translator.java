@@ -2,7 +2,6 @@ package com.kntrel.mc.runical.bukkit;
 
 import com.kntrel.mc.runical.core.BaseTranslator;
 import com.kntrel.mc.runical.core.ListStyle;
-import com.kntrel.mc.runical.core.placeholder.Placeholder;
 import com.kntrel.mc.runical.bukkit.dsl.PlayerTranslationJob;
 import com.kntrel.mc.runical.bukkit.dsl.TranslationJob;
 import org.bukkit.entity.Player;
@@ -32,24 +31,10 @@ public interface Translator extends BaseTranslator {
      * @param locale requested locale
      * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
      *            translator is a child node
-     * @param args placeholders used to render the resolved translation
      * @return a mutable translation job
      */
     @Override
-    TranslationJob translate(String locale, String key, Placeholder... args);
-
-    /**
-     * Starts a translation lookup job without placeholders.
-     *
-     * @param locale requested locale
-     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
-     *            translator is a child node
-     * @return a mutable translation job
-     */
-    @Override
-    default TranslationJob translate(String locale, String key) {
-        return this.translate(locale, key, new Placeholder[0]);
-    }
+    TranslationJob translate(String locale, String key);
 
     /**
      * Starts a translation lookup job using the supplied player's locale.
@@ -57,22 +42,9 @@ public interface Translator extends BaseTranslator {
      * @param player player whose locale should be used
      * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
      *            translator is a child node
-     * @param args placeholders used to render the resolved translation
      * @return a player-bound translation job
      */
-    PlayerTranslationJob translate(Player player, String key, Placeholder... args);
-
-    /**
-     * Starts a translation lookup job using the supplied player's locale without placeholders.
-     *
-     * @param player player whose locale should be used
-     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
-     *            translator is a child node
-     * @return a player-bound translation job
-     */
-    default PlayerTranslationJob translate(Player player, String key) {
-        return this.translate(player, key, new Placeholder[0]);
-    }
+    PlayerTranslationJob translate(Player player, String key);
 
     /**
      * Formats a collection using the player's locale and {@link ListStyle#AND AND-style} list

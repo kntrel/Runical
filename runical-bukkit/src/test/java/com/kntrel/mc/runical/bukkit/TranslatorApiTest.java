@@ -5,7 +5,6 @@ import com.kntrel.mc.runical.core.dsl.AsyncTranslationJob;
 import com.kntrel.mc.runical.core.dsl.AsyncTerminalTranslationJob;
 import com.kntrel.mc.runical.core.dsl.TerminalTranslationJob;
 import com.kntrel.mc.runical.core.dsl.TranslationJob;
-import com.kntrel.mc.runical.core.placeholder.Placeholder;
 import com.kntrel.mc.runical.bukkit.dsl.PlayerTerminalTranslationJob;
 import com.kntrel.mc.runical.bukkit.dsl.PlayerTranslationJob;
 import net.md_5.bungee.api.ChatMessageType;
@@ -34,13 +33,26 @@ class TranslatorApiTest {
     @Test
     void exposesJobBasedTranslationApiOnPublicApi() throws Exception {
         assertEquals(TranslationJob.class, BaseTranslator.class.getMethod(
-                "translate", String.class, String.class, Placeholder[].class
+                "translate", String.class, String.class
         ).getReturnType());
         assertEquals(com.kntrel.mc.runical.bukkit.dsl.TranslationJob.class, Translator.class.getMethod(
-                "translate", String.class, String.class, Placeholder[].class
+                "translate", String.class, String.class
         ).getReturnType());
         assertEquals(PlayerTranslationJob.class, Translator.class.getMethod(
-                "translate", Player.class, String.class, Placeholder[].class
+                "translate", Player.class, String.class
+        ).getReturnType());
+    }
+
+    @Test
+    void exposesFluentArgumentDslOnPublicApi() throws Exception {
+        assertEquals(TranslationJob.class, TranslationJob.class.getMethod(
+                "argument", String.class, Object.class
+        ).getReturnType());
+        assertEquals(com.kntrel.mc.runical.bukkit.dsl.TranslationJob.class, com.kntrel.mc.runical.bukkit.dsl.TranslationJob.class.getMethod(
+                "argument", String.class, Object.class
+        ).getReturnType());
+        assertEquals(PlayerTranslationJob.class, PlayerTranslationJob.class.getMethod(
+                "argument", String.class, Object.class
         ).getReturnType());
     }
 

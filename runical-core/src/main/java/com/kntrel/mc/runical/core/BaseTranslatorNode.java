@@ -1,7 +1,6 @@
 package com.kntrel.mc.runical.core;
 
 import com.kntrel.mc.runical.core.dsl.TranslationJob;
-import com.kntrel.mc.runical.core.placeholder.Placeholder;
 
 import java.util.Objects;
 
@@ -31,8 +30,8 @@ final class BaseTranslatorNode implements BaseTranslator {
     }
 
     @Override
-    public TranslationJob translate(String locale, String key, Placeholder... args) {
-        return this.root_.translate(locale, qualifyKey(key), args);
+    public TranslationJob translate(String locale, String key) {
+        return this.root_.translate(locale, qualifyKey(key));
     }
 
     private String qualifyKey(String key) {

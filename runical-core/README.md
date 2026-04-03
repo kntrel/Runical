@@ -23,7 +23,6 @@ same key-lookup contract. A minimal wrapper looks like this:
 
 ```java
 import com.kntrel.mc.runical.core.BaseRunical;
-import com.kntrel.mc.runical.core.placeholder.Placeholder;
 import com.kntrel.mc.runical.core.ResolvedTranslation;
 import com.kntrel.mc.runical.core.RunicalOptions;
 
@@ -45,11 +44,9 @@ try (RunicalCore runical = new RunicalCore(
                 .defaultLocale("en-us")
                 .build()
 )) {
-    String message = runical.translate(
-            "es-mx",
-            "greeting.message",
-            Placeholder.of("player", "Alex")
-    ).message();
+    String message = runical.translate("es-mx", "greeting.message")
+            .argument("player", "Alex")
+            .message();
 
     BaseTranslator regionTranslator = runical.getChild("totem").getChild("region");
     String regionName = regionTranslator.translate("es-mx", "naming.default").message();
@@ -129,22 +126,19 @@ greeting:
 ```
 
 ```java
-String translated = runical.translate(
-        "en-us",
-        "greeting.message",
-        Placeholder.of("player", "Alex"),
-        Placeholder.of("count", 12)
-);
+String translated = runical.translate("en-us", "greeting.message")
+        .argument("player", "Alex")
+        .argument("count", 12)
+        .message();
 ```
 
 Rendering rules:
 
-- Placeholder names are matched exactly.
-- Placeholder values are converted with `String.valueOf(...)`.
+- Argument names are matched exactly against placeholder tokens.
+- Argument values are converted with `String.valueOf(...)`.
 - `BundledPlaceholder` values expose the bundle default through the root token such as `{region}`.
 - `BundledPlaceholder` values also expand into dotted placeholder tokens such as `{region.name}`.
 - If a placeholder is missing, the token stays in the output unchanged.
-- `null` entries in the placeholder argument array are ignored.
 - Use `{{` for a literal `{` and `}}` for a literal `}`.
 
 Example:
@@ -154,7 +148,7 @@ example:
   message: "Hello {player}, {{literal}} {missing}"
 ```
 
-With `Placeholder.of("player", "Alex")`, the result is:
+With `.argument("player", "Alex")`, the result is:
 
 ```text
 Hello Alex, {literal} {missing}
@@ -167,11 +161,9 @@ BundledPlaceholder region = BundledPlaceholder.of("name", "Spawn")
         .append("id", 12)
         .append("color", "Blue ");
 
-String translated = runical.translate(
-        "en-us",
-        "region.message",
-        Placeholder.of("region", region)
-);
+String translated = runical.translate("en-us", "region.message")
+        .argument("region", region)
+        .message();
 ```
 
 ```yaml

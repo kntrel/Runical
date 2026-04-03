@@ -1,4 +1,4 @@
-package com.kntrel.mc.runical.core.placeholder;
+package com.kntrel.mc.runical.core.argument;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -9,16 +9,16 @@ import java.util.Objects;
  * Group of placeholder values that can be mounted under a single placeholder namespace.
  *
  * <p>Bundled placeholders are flattened into dotted placeholder tokens during rendering. For
- * example, passing {@code Placeholder.of("person", bundled)} exposes entries such as
+ * example, calling {@code translate(...).argument("person", bundled)} exposes entries such as
  * {@code {person.name}} and {@code {person.age}}.
  */
-public final class BundledPlaceholder {
+public final class BundledArgument {
 
     private final LinkedHashMap<String, Object> values;
     private boolean hasDefaultValue;
     private Object defaultValue;
 
-    private BundledPlaceholder(LinkedHashMap<String, Object> values, boolean hasDefaultValue, Object defaultValue) {
+    private BundledArgument(LinkedHashMap<String, Object> values, boolean hasDefaultValue, Object defaultValue) {
         this.values = values;
         this.hasDefaultValue = hasDefaultValue;
         this.defaultValue = defaultValue;
@@ -29,8 +29,8 @@ public final class BundledPlaceholder {
      *
      * @return an empty bundled placeholder
      */
-    public static BundledPlaceholder empty() {
-        return new BundledPlaceholder(new LinkedHashMap<>(), false, null);
+    public static BundledArgument empty() {
+        return new BundledArgument(new LinkedHashMap<>(), false, null);
     }
 
     /**
@@ -42,10 +42,10 @@ public final class BundledPlaceholder {
      * @throws NullPointerException if {@code name} is {@code null}
      * @throws IllegalArgumentException if {@code name} is blank or contains a dot
      */
-    public static BundledPlaceholder of(String name, Object value) {
+    public static BundledArgument of(String name, Object value) {
         LinkedHashMap<String, Object> values = new LinkedHashMap<>();
         put(values, name, value);
-        return new BundledPlaceholder(values, true, value);
+        return new BundledArgument(values, true, value);
     }
 
     /**
@@ -60,7 +60,7 @@ public final class BundledPlaceholder {
      * @throws NullPointerException if {@code name} is {@code null}
      * @throws IllegalArgumentException if {@code name} is blank or contains a dot
      */
-    public BundledPlaceholder append(String name, Object value) {
+    public BundledArgument append(String name, Object value) {
         put(this.values, name, value);
         return this;
     }
@@ -68,14 +68,14 @@ public final class BundledPlaceholder {
     /**
      * Replaces the value used when the bundle's namespace itself is referenced.
      *
-     * <p>For example, if a bundle is passed as {@code Placeholder.of("person", bundled)}, then this
+     * <p>For example, if a bundle is passed through {@code argument("person", bundled)}, then this
      * method controls the value rendered for {@code {person}} while dotted entries such as
      * {@code {person.name}} continue to come from the bundled entries.
      *
      * @param value namespace default value, which may be {@code null}
      * @return this bundled placeholder
      */
-    public BundledPlaceholder appendDefault(Object value) {
+    public BundledArgument appendDefault(Object value) {
         this.hasDefaultValue = true;
         this.defaultValue = value;
         return this;

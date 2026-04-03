@@ -1,8 +1,8 @@
-package com.kntrel.mc.runical.core.placeholder.internal;
+package com.kntrel.mc.runical.core.argument.internal;
 
-import com.kntrel.mc.runical.core.placeholder.BundledPlaceholder;
-import com.kntrel.mc.runical.core.placeholder.Translatable;
-import com.kntrel.mc.runical.core.placeholder.TranslationProperty;
+import com.kntrel.mc.runical.core.argument.BundledArgument;
+import com.kntrel.mc.runical.core.argument.Translatable;
+import com.kntrel.mc.runical.core.argument.TranslationProperty;
 
 import java.beans.Introspector;
 import java.lang.reflect.Field;
@@ -28,7 +28,7 @@ public final class TranslatableBundleFactory {
     private TranslatableBundleFactory() {
     }
 
-    public static BundledPlaceholder toBundledPlaceholder(Object value) {
+    public static BundledArgument toBundledPlaceholder(Object value) {
         if (value == null) {
             return null;
         }
@@ -139,16 +139,16 @@ public final class TranslatableBundleFactory {
             return Optional.of(new TranslationDescriptor(List.copyOf(accessors)));
         }
 
-        private BundledPlaceholder extract(Object instance) {
-            BundledPlaceholder bundledPlaceholder = BundledPlaceholder.empty();
+        private BundledArgument extract(Object instance) {
+            BundledArgument bundledArgument = BundledArgument.empty();
             for (PropertyAccessor accessor : this.accessors) {
                 Object value = accessor.read(instance);
-                bundledPlaceholder.append(accessor.name(), value);
+                bundledArgument.append(accessor.name(), value);
                 if (accessor.root()) {
-                    bundledPlaceholder.appendDefault(value);
+                    bundledArgument.appendDefault(value);
                 }
             }
-            return bundledPlaceholder;
+            return bundledArgument;
         }
 
         private static PropertyAccessor ensureSingleRoot(Class<?> type, PropertyAccessor currentRoot, PropertyAccessor candidate) {

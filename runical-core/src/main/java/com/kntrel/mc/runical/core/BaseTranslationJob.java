@@ -3,7 +3,8 @@ package com.kntrel.mc.runical.core;
 import com.kntrel.mc.runical.core.dsl.AsyncTranslationJob;
 import com.kntrel.mc.runical.core.dsl.TerminalTranslationJob;
 import com.kntrel.mc.runical.core.dsl.TranslationJob;
-import com.kntrel.mc.runical.core.placeholder.Placeholder;
+import com.kntrel.mc.runical.core.argument.Argument;
+import java.util.ArrayList;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
@@ -12,15 +13,21 @@ import java.util.concurrent.CompletableFuture;
  */
 public abstract class BaseTranslationJob implements TranslationJob {
 
-    private static final Placeholder[] EMPTY_ARGS = new Placeholder[0];
+    private static final Argument[] EMPTY_ARGS = new Argument[0];
 
-    private final Placeholder[] args_;
+    private final ArrayList<Argument> args_;
     private MissPolicy missPolicy_ = MissPolicy.KEY;
     private String defaultValue_;
     private AsyncTranslationJob asyncTerminal_;
 
-    protected BaseTranslationJob(Placeholder... args) {
-        this.args_ = args == null ? EMPTY_ARGS : args;
+    protected BaseTranslationJob() {
+        this.args_ = new ArrayList<>();
+    }
+
+    @Override
+    public TranslationJob argument(Argument argument) {
+        this.args_.add(argument);
+        return this;
     }
 
     @Override
@@ -47,12 +54,12 @@ public abstract class BaseTranslationJob implements TranslationJob {
     @Override
     public final String message() {
         TerminalSnapshot snapshot = this.snapshot();
-        return this.materializeMessage(this.resolveRaw(), snapshot);
+        return this.materializeMessage(this.resolveRaw(snapshot.args()), snapshot);
     }
 
     @Override
     public final ResolvedTranslation translation() {
-        return this.resolveRaw();
+        return this.resolveRaw(this.args());
     }
 
     @Override
@@ -63,19 +70,21 @@ public abstract class BaseTranslationJob implements TranslationJob {
         return this.asyncTerminal_;
     }
 
-    protected final Placeholder[] args() {
-        return this.args_;
+    protected final Argument[] args() {
+        return this.args_.isEmpty() ? EMPTY_ARGS : this.args_.toArray(EMPTY_ARGS);
     }
 
     protected final TerminalSnapshot snapshot() {
-        return new TerminalSnapshot(this.missPolicy_, this.defaultValue_);
+        return new TerminalSnapshot(this.missPolicy_, this.defaultValue_, this.args());
     }
 
     protected final String materializeMessage(ResolvedTranslation resolved, TerminalSnapshot snapshot) {
         return switch (snapshot.missPolicy()) {
             case KEY -> resolved.orKey();
             case NULL -> resolved.value();
-            case DEFAULT -> resolved.found() ? resolved.value() : this.renderDefaultValue(snapshot.defaultValue());
+            case DEFAULT -> resolved.found()
+                    ? resolved.value()
+                    : this.renderDefaultValue(snapshot.defaultValue(), snapshot.args());
         };
     }
 
@@ -83,11 +92,11 @@ public abstract class BaseTranslationJob implements TranslationJob {
         return new AsyncView();
     }
 
-    protected abstract ResolvedTranslation resolveRaw();
+    protected abstract ResolvedTranslation resolveRaw(Argument[] args);
 
-    protected abstract CompletableFuture<ResolvedTranslation> resolveRawAsync();
+    protected abstract CompletableFuture<ResolvedTranslation> resolveRawAsync(Argument[] args);
 
-    protected abstract String renderDefaultValue(String defaultValue);
+    protected abstract String renderDefaultValue(String defaultValue, Argument[] args);
 
     protected enum MissPolicy {
         KEY,
@@ -95,7 +104,7 @@ public abstract class BaseTranslationJob implements TranslationJob {
         DEFAULT
     }
 
-    protected record TerminalSnapshot(MissPolicy missPolicy, String defaultValue) {
+    protected record TerminalSnapshot(MissPolicy missPolicy, String defaultValue, Argument[] args) {
     }
 
     private final class AsyncView implements AsyncTranslationJob {
@@ -103,13 +112,13 @@ public abstract class BaseTranslationJob implements TranslationJob {
         @Override
         public CompletableFuture<String> message() {
             TerminalSnapshot snapshot = BaseTranslationJob.this.snapshot();
-            return BaseTranslationJob.this.resolveRawAsync()
+            return BaseTranslationJob.this.resolveRawAsync(snapshot.args())
                     .thenApply(resolved -> BaseTranslationJob.this.materializeMessage(resolved, snapshot));
         }
 
         @Override
         public CompletableFuture<ResolvedTranslation> translation() {
-            return BaseTranslationJob.this.resolveRawAsync();
+            return BaseTranslationJob.this.resolveRawAsync(BaseTranslationJob.this.args());
         }
     }
 }

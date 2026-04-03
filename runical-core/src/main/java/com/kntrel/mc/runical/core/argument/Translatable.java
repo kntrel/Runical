@@ -1,4 +1,4 @@
-package com.kntrel.mc.runical.core.placeholder;
+package com.kntrel.mc.runical.core.argument;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

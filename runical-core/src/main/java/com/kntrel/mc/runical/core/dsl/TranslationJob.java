@@ -1,12 +1,32 @@
 package com.kntrel.mc.runical.core.dsl;
 
 import com.kntrel.mc.runical.core.ResolvedTranslation;
+import com.kntrel.mc.runical.core.argument.Argument;
 
 /**
  * Mutable translation DSL that accumulates miss-handling intent until a terminal operation is
  * invoked.
  */
 public interface TranslationJob extends TerminalTranslationJob {
+
+    /**
+     * Adds a translation argument to the job, to be resolved and rendered on top of a placeholder of the same name.
+     *
+     * @param argument the argument
+     * @return this job
+     */
+    TranslationJob argument(Argument argument);
+
+    /**
+     * Adds a named translation argument to the job.
+     *
+     * @param name placeholder token name
+     * @param value value exposed for that token, which may be {@code null}
+     * @return this job
+     */
+    default TranslationJob argument(String name, Object value) {
+        return this.argument(new Argument(name, value));
+    }
 
     /**
      * Configures the job to fall back to the unresolved key when the lookup misses.
@@ -25,7 +45,7 @@ public interface TranslationJob extends TerminalTranslationJob {
     /**
      * Configures the job to render {@code defaultValue} when the lookup misses.
      *
-     * @param defaultValue fallback template rendered with the job placeholders
+     * @param defaultValue fallback template rendered with the job arguments
      * @return the terminal surface with the configured miss policy
      * @throws NullPointerException if {@code defaultValue} is {@code null}
      */

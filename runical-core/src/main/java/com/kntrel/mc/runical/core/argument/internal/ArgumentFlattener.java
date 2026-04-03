@@ -1,21 +1,21 @@
-package com.kntrel.mc.runical.core.placeholder.internal;
+package com.kntrel.mc.runical.core.argument.internal;
 
-import com.kntrel.mc.runical.core.placeholder.BundledPlaceholder;
-import com.kntrel.mc.runical.core.placeholder.Placeholder;
+import com.kntrel.mc.runical.core.argument.BundledArgument;
+import com.kntrel.mc.runical.core.argument.Argument;
 
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
-public final class PlaceholderFlattener {
+public final class ArgumentFlattener {
 
-    private PlaceholderFlattener() {
+    private ArgumentFlattener() {
     }
 
-    public static Map<String, String> flatten(Placeholder... args) {
+    public static Map<String, String> flatten(Argument... args) {
         Map<String, String> placeholders = new HashMap<>();
         IdentityHashMap<Object, Boolean> activeValues = new IdentityHashMap<>();
-        for (Placeholder argument : args) {
+        for (Argument argument : args) {
             if (argument == null) {
                 continue;
             }
@@ -54,14 +54,14 @@ public final class PlaceholderFlattener {
     }
 
     private static String stringifyBundleDefault(
-            BundledPlaceholder bundledPlaceholder,
+            BundledArgument bundledArgument,
             String name,
             IdentityHashMap<Object, Boolean> activeValues
     ) {
-        if (!bundledPlaceholder.hasDefaultValue()) {
+        if (!bundledArgument.hasDefaultValue()) {
             return null;
         }
-        return stringify(bundledPlaceholder.defaultValue(), name, activeValues);
+        return stringify(bundledArgument.defaultValue(), name, activeValues);
     }
 
     private static String stringify(Object value, String name, IdentityHashMap<Object, Boolean> activeValues) {
@@ -82,11 +82,11 @@ public final class PlaceholderFlattener {
     }
 
     private static BundledValue bundledValue(Object value) {
-        if (value instanceof BundledPlaceholder bundledPlaceholder) {
-            return new BundledValue(bundledPlaceholder, bundledPlaceholder);
+        if (value instanceof BundledArgument bundledArgument) {
+            return new BundledValue(bundledArgument, bundledArgument);
         }
 
-        BundledPlaceholder translatableBundle = TranslatableBundleFactory.toBundledPlaceholder(value);
+        BundledArgument translatableBundle = TranslatableBundleFactory.toBundledPlaceholder(value);
         if (translatableBundle != null) {
             return new BundledValue(translatableBundle, value);
         }
@@ -94,6 +94,6 @@ public final class PlaceholderFlattener {
         return null;
     }
 
-    private record BundledValue(BundledPlaceholder bundle, Object cycleKey) {
+    private record BundledValue(BundledArgument bundle, Object cycleKey) {
     }
 }

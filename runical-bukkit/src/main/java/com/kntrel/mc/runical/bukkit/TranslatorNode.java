@@ -1,7 +1,6 @@
 package com.kntrel.mc.runical.bukkit;
 
 import com.kntrel.mc.runical.core.ListStyle;
-import com.kntrel.mc.runical.core.placeholder.Placeholder;
 import com.kntrel.mc.runical.bukkit.dsl.PlayerTranslationJob;
 import com.kntrel.mc.runical.bukkit.dsl.TranslationJob;
 import org.bukkit.entity.Player;
@@ -35,13 +34,13 @@ final class TranslatorNode implements Translator {
     }
 
     @Override
-    public TranslationJob translate(String locale, String key, Placeholder... args) {
-        return this.root_.translate(locale, qualifyKey(key), args);
+    public TranslationJob translate(String locale, String key) {
+        return this.root_.translate(locale, qualifyKey(key));
     }
 
     @Override
-    public PlayerTranslationJob translate(Player player, String key, Placeholder... args) {
-        return this.root_.translate(player, qualifyKey(key), args);
+    public PlayerTranslationJob translate(Player player, String key) {
+        return this.root_.translate(player, qualifyKey(key));
     }
 
     @Override

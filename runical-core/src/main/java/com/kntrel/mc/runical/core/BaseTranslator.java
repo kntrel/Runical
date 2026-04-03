@@ -1,7 +1,6 @@
 package com.kntrel.mc.runical.core;
 
 import com.kntrel.mc.runical.core.dsl.TranslationJob;
-import com.kntrel.mc.runical.core.placeholder.Placeholder;
 
 /**
  * Path-scoped translation API.
@@ -45,22 +44,9 @@ public interface BaseTranslator {
      * @param locale requested locale
      * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
      *            translator is a child node
-     * @param args placeholders used to render the resolved translation
      * @return a mutable translation job
      * @throws NullPointerException if {@code locale} or {@code key} is {@code null}
      * @throws IllegalArgumentException if {@code locale} or {@code key} is blank
      */
-    TranslationJob translate(String locale, String key, Placeholder... args);
-
-    /**
-     * Starts a translation lookup job without placeholders.
-     *
-     * @param locale requested locale
-     * @param key dot-separated translation key, resolved relative to {@link #getPath()} when this
-     *            translator is a child node
-     * @return a mutable translation job
-     */
-    default TranslationJob translate(String locale, String key) {
-        return this.translate(locale, key, new Placeholder[0]);
-    }
+    TranslationJob translate(String locale, String key);
 }
